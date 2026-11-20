@@ -1,0 +1,267 @@
+import { DayPlan } from "../types/workout";
+
+const makeEx = (id: string, name: string, detail: string) => ({
+  id,
+  name,
+  detail,
+  completed: false,
+});
+
+export const SPLIT_TEMPLATES: {
+  id: string;
+  name: string;
+  sub: string;
+  days: DayPlan[];
+}[] = [
+  {
+    id: "ppl",
+    name: "Push / Pull / Legs",
+    sub: "Haftada 6 gün klasik hacim düzeni",
+    days: [
+      {
+        id: "mon",
+        shortLabel: "MON",
+        fullLabel: "PAZARTESİ",
+        title: "Push (Göğüs & Omuz)",
+        isRestDay: false,
+        exercises: [
+          makeEx("p1", "Incline Dumbbell Press", "4x8"),
+          makeEx("p2", "Flat Bench Press", "3x8"),
+          makeEx("p3", "Lateral Raise", "4x15"),
+          makeEx("p4", "Triceps Pushdown", "3x12"),
+        ],
+      },
+      {
+        id: "tue",
+        shortLabel: "TUE",
+        fullLabel: "SALI",
+        title: "Pull (Sırt & Biceps)",
+        isRestDay: false,
+        exercises: [
+          makeEx("p5", "Lat Pulldown", "4x10"),
+          makeEx("p6", "Barbell Row", "4x8"),
+          makeEx("p7", "Face Pull", "3x15"),
+          makeEx("p8", "Barbell Curl", "3x10"),
+        ],
+      },
+      {
+        id: "wed",
+        shortLabel: "WED",
+        fullLabel: "ÇARŞAMBA",
+        title: "Legs (Bacak)",
+        isRestDay: false,
+        exercises: [
+          makeEx("p9", "Barbell Squat", "4x6"),
+          makeEx("p10", "Romanian Deadlift", "3x10"),
+          makeEx("p11", "Leg Extension", "3x12"),
+          makeEx("p12", "Calf Raise", "4x15"),
+        ],
+      },
+      {
+        id: "thu",
+        shortLabel: "THU",
+        fullLabel: "PERŞEMBE",
+        title: "Push B",
+        isRestDay: false,
+        exercises: [
+          makeEx("p13", "Overhead Press", "4x8"),
+          makeEx("p14", "Cable Fly", "3x12"),
+          makeEx("p15", "Overhead Triceps Ext", "3x12"),
+        ],
+      },
+      {
+        id: "fri",
+        shortLabel: "FRI",
+        fullLabel: "CUMA",
+        title: "Pull B",
+        isRestDay: false,
+        exercises: [
+          makeEx("p16", "Pull-Ups", "3xMax"),
+          makeEx("p17", "Seated Cable Row", "4x10"),
+          makeEx("p18", "Hammer Curl", "3x12"),
+        ],
+      },
+      {
+        id: "sat",
+        shortLabel: "SAT",
+        fullLabel: "CUMARTESİ",
+        title: "Legs B",
+        isRestDay: false,
+        exercises: [
+          makeEx("p19", "Leg Press", "4x10"),
+          makeEx("p20", "Leg Curl", "3x12"),
+          makeEx("p21", "Bulgarian Split Squat", "3x10"),
+        ],
+      },
+      {
+        id: "sun",
+        shortLabel: "SUN",
+        fullLabel: "PAZAR",
+        title: "Rest Day",
+        isRestDay: true,
+        exercises: [],
+      },
+    ],
+  },
+  {
+    id: "upper-lower",
+    name: "Upper / Lower",
+    sub: "Haftada 4 gün dengeli güç & hipertrofi",
+    days: [
+      {
+        id: "mon",
+        shortLabel: "MON",
+        fullLabel: "PAZARTESİ",
+        title: "Upper A",
+        isRestDay: false,
+        exercises: [
+          makeEx("u1", "Bench Press", "4x6"),
+          makeEx("u2", "Barbell Row", "4x8"),
+          makeEx("u3", "Overhead Press", "3x10"),
+          makeEx("u4", "Lat Pulldown", "3x10"),
+          makeEx("u5", "Hammer Curl", "3x12"),
+        ],
+      },
+      {
+        id: "tue",
+        shortLabel: "TUE",
+        fullLabel: "SALI",
+        title: "Lower A",
+        isRestDay: false,
+        exercises: [
+          makeEx("u6", "Barbell Squat", "4x6"),
+          makeEx("u7", "Romanian Deadlift", "3x8"),
+          makeEx("u8", "Leg Press", "3x12"),
+          makeEx("u9", "Calf Raise", "4x15"),
+        ],
+      },
+      {
+        id: "wed",
+        shortLabel: "WED",
+        fullLabel: "ÇARŞAMBA",
+        title: "Rest Day",
+        isRestDay: true,
+        exercises: [],
+      },
+      {
+        id: "thu",
+        shortLabel: "THU",
+        fullLabel: "PERŞEMBE",
+        title: "Upper B",
+        isRestDay: false,
+        exercises: [
+          makeEx("u10", "Incline Dumbbell Press", "4x8"),
+          makeEx("u11", "Seated Cable Row", "4x10"),
+          makeEx("u12", "Lateral Raise", "4x15"),
+          makeEx("u13", "Triceps Pushdown", "3x12"),
+        ],
+      },
+      {
+        id: "fri",
+        shortLabel: "FRI",
+        fullLabel: "CUMA",
+        title: "Lower B",
+        isRestDay: false,
+        exercises: [
+          makeEx("u14", "Deadlift", "3x5"),
+          makeEx("u15", "Bulgarian Split Squat", "3x10"),
+          makeEx("u16", "Leg Curl", "3x12"),
+        ],
+      },
+      {
+        id: "sat",
+        shortLabel: "SAT",
+        fullLabel: "CUMARTESİ",
+        title: "Rest Day",
+        isRestDay: true,
+        exercises: [],
+      },
+      {
+        id: "sun",
+        shortLabel: "SUN",
+        fullLabel: "PAZAR",
+        title: "Rest Day",
+        isRestDay: true,
+        exercises: [],
+      },
+    ],
+  },
+  {
+    id: "full-body",
+    name: "Full Body (3 Gün)",
+    sub: "Pazartesi - Çarşamba - Cuma minimal program",
+    days: [
+      {
+        id: "mon",
+        shortLabel: "MON",
+        fullLabel: "PAZARTESİ",
+        title: "Full Body A",
+        isRestDay: false,
+        exercises: [
+          makeEx("f1", "Barbell Squat", "3x8"),
+          makeEx("f2", "Bench Press", "3x8"),
+          makeEx("f3", "Barbell Row", "3x10"),
+          makeEx("f4", "Lateral Raise", "3x15"),
+        ],
+      },
+      {
+        id: "tue",
+        shortLabel: "TUE",
+        fullLabel: "SALI",
+        title: "Rest Day",
+        isRestDay: true,
+        exercises: [],
+      },
+      {
+        id: "wed",
+        shortLabel: "WED",
+        fullLabel: "ÇARŞAMBA",
+        title: "Full Body B",
+        isRestDay: false,
+        exercises: [
+          makeEx("f5", "Romanian Deadlift", "3x8"),
+          makeEx("f6", "Overhead Press", "3x8"),
+          makeEx("f7", "Lat Pulldown", "3x10"),
+          makeEx("f8", "Barbell Curl", "3x12"),
+        ],
+      },
+      {
+        id: "thu",
+        shortLabel: "THU",
+        fullLabel: "PERŞEMBE",
+        title: "Rest Day",
+        isRestDay: true,
+        exercises: [],
+      },
+      {
+        id: "fri",
+        shortLabel: "FRI",
+        fullLabel: "CUMA",
+        title: "Full Body C",
+        isRestDay: false,
+        exercises: [
+          makeEx("f9", "Leg Press", "3x10"),
+          makeEx("f10", "Incline Dumbbell Press", "3x10"),
+          makeEx("f11", "Seated Cable Row", "3x10"),
+          makeEx("f12", "Triceps Pushdown", "3x12"),
+        ],
+      },
+      {
+        id: "sat",
+        shortLabel: "SAT",
+        fullLabel: "CUMARTESİ",
+        title: "Rest Day",
+        isRestDay: true,
+        exercises: [],
+      },
+      {
+        id: "sun",
+        shortLabel: "SUN",
+        fullLabel: "PAZAR",
+        title: "Rest Day",
+        isRestDay: true,
+        exercises: [],
+      },
+    ],
+  },
+];
