@@ -3,13 +3,12 @@ import {
   Modal,
   View,
   Text,
-  Image,
   TouchableOpacity,
-  ImageSourcePropType,
+  ImageBackground,
   StyleSheet,
+  ImageSourcePropType,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { CheckCircle2, Trophy, X } from "lucide-react-native";
+import { CheckCircle2, Trophy } from "lucide-react-native";
 import { Lang, WorkoutLog } from "../types/workout";
 import { COLORS } from "../constants/theme";
 import { STRINGS } from "../constants/i18n";
@@ -33,89 +32,64 @@ export const WorkoutSummaryModal: React.FC<Props> = ({
 }) => {
   if (!log) return null;
   const t = STRINGS[lang];
-  const prCount = log.prCount || 0;
+
+  const cardInner = (
+    <View style={styles.inner}>
+      <View style={styles.badgeRow}>
+        <CheckCircle2 size={14} color={accentHex} />
+        <Text style={[styles.badgeText, { color: accentHex }]}>
+          {t.summaryBadge}
+        </Text>
+      </View>
+
+      <Text style={styles.dayTitle}>{log.dayTitle}</Text>
+      <Text style={styles.dateText}>{log.dateISO}</Text>
+
+      <View style={styles.statsBox}>
+        <View style={styles.statCol}>
+          <Text style={[styles.statNum, { color: accentHex }]}>
+            {log.completedCount}/{log.totalCount}
+          </Text>
+          <Text style={styles.statLabel}>{t.completedStat}</Text>
+        </View>
+
+        <View style={styles.divider} />
+
+        <View style={styles.statCol}>
+          <View style={styles.prRow}>
+            <Trophy size={16} color={accentHex} />
+            <Text style={styles.statNum}>{log.prCount || 0}</Text>
+          </View>
+          <Text style={styles.statLabel}>{t.newPrStat}</Text>
+        </View>
+      </View>
+
+      <Text style={styles.quoteText}>“{quote}”</Text>
+
+      <TouchableOpacity
+        onPress={onClose}
+        style={[styles.closeBtn, { backgroundColor: accentHex }]}
+      >
+        <Text style={styles.closeBtnText}>{t.closeBtn}</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
-    <Modal
-      visible={!!log}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={[styles.card, !bgSource && styles.solidCard]}>
-          {bgSource && (
-            <Image
+        <View style={styles.card}>
+          {bgSource ? (
+            <ImageBackground
               source={bgSource}
-              style={styles.bgImage}
               resizeMode="cover"
-            />
-          )}
-
-          <LinearGradient
-            colors={["rgba(0,0,0,0.35)", "rgba(0,0,0,0.92)"] as const}
-            style={styles.overlay}
-          >
-            <View style={styles.topRow}>
-              <Text style={[styles.brand, { color: accentHex }]}>
-                GYMNOTE // SESSION LOG
-              </Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <X size={16} color={COLORS.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.center}>
-              <CheckCircle2 size={38} color={accentHex} strokeWidth={2.2} />
-              <Text style={styles.date}>{log.dateISO}</Text>
-              <Text style={styles.title}>{log.dayTitle}</Text>
-              <Text style={styles.quote}>“{quote}”</Text>
-            </View>
-
-            <View style={styles.statsBar}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statVal, { color: accentHex }]}>
-                  {log.completedCount}/{log.totalCount}
-                </Text>
-                <Text style={styles.statLabel}>{t.completedLabel}</Text>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.statItem}>
-                <View style={styles.prRow}>
-                  <Trophy
-                    size={15}
-                    color={prCount > 0 ? accentHex : COLORS.textPrimary}
-                  />
-                  <Text
-                    style={[
-                      styles.statVal,
-                      prCount > 0 && { color: accentHex },
-                    ]}
-                  >
-                    {prCount}
-                  </Text>
-                </View>
-                <Text style={styles.statLabel}>{t.prBrokenLabel}</Text>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.statItem}>
-                <Text style={styles.statVal}>DONE</Text>
-                <Text style={styles.statLabel}>{t.statusLabel}</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              onPress={onClose}
-              activeOpacity={0.85}
-              style={[styles.doneBtn, { backgroundColor: accentHex }]}
+              imageStyle={styles.bgImg}
             >
-              <Text style={styles.doneBtnText}>{t.continueBtn}</Text>
-            </TouchableOpacity>
-          </LinearGradient>
+              {cardInner}
+            </ImageBackground>
+          ) : (
+            cardInner
+          )}
         </View>
       </View>
     </Modal>
@@ -126,121 +100,100 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.85)",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
     padding: 20,
   },
   card: {
     width: "100%",
     maxWidth: 380,
-    height: 480,
-    borderRadius: 24,
+    borderRadius: 20,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: COLORS.borderSpecular,
-    position: "relative",
-    backgroundColor: "#0E0E11",
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
   },
-  solidCard: {
-    backgroundColor: "#0E0E11",
+  bgImg: {
+    opacity: 0.28,
   },
-  bgImage: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-  },
-  overlay: {
-    flex: 1,
+  inner: {
     padding: 22,
-    justifyContent: "space-between",
+    backgroundColor: "rgba(8,8,10,0.82)",
+    alignItems: "center",
   },
-  topRow: {
+  badgeRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 6,
+    marginBottom: 10,
   },
-  brand: {
+  badgeText: {
     fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1.5,
+    fontWeight: "900",
+    letterSpacing: 1.2,
   },
-  closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  center: {
-    alignItems: "center",
-    gap: 8,
-  },
-  date: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: COLORS.textSecondary,
-    letterSpacing: 1,
-    marginTop: 6,
-  },
-  title: {
-    fontSize: 28,
+  dayTitle: {
+    fontSize: 22,
     fontWeight: "800",
     color: COLORS.textPrimary,
     textAlign: "center",
-    letterSpacing: -0.6,
   },
-  quote: {
-    fontSize: 13,
+  dateText: {
+    fontSize: 12,
     color: COLORS.textSecondary,
-    textAlign: "center",
-    fontStyle: "italic",
     marginTop: 4,
+    marginBottom: 18,
   },
-  statsBar: {
+  statsBox: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
+    width: "100%",
     borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(255,255,255,0.04)",
     borderWidth: 1,
-    borderColor: COLORS.borderSpecular,
+    borderColor: COLORS.border,
+    paddingVertical: 14,
+    marginBottom: 16,
   },
-  statItem: {
+  statCol: {
     flex: 1,
     alignItems: "center",
+    gap: 4,
+  },
+  divider: {
+    width: 1,
+    backgroundColor: COLORS.border,
   },
   prRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
   },
-  statVal: {
-    fontSize: 20,
+  statNum: {
+    fontSize: 22,
     fontWeight: "800",
     color: COLORS.textPrimary,
     fontVariant: ["tabular-nums"],
   },
   statLabel: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: 0.8,
     color: COLORS.textSecondary,
-    letterSpacing: 1,
-    marginTop: 3,
   },
-  divider: {
-    width: 1,
-    height: 28,
-    backgroundColor: COLORS.border,
+  quoteText: {
+    fontSize: 13,
+    fontStyle: "italic",
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    marginBottom: 18,
   },
-  doneBtn: {
-    paddingVertical: 14,
-    borderRadius: 14,
+  closeBtn: {
+    width: "100%",
+    paddingVertical: 13,
+    borderRadius: 12,
     alignItems: "center",
   },
-  doneBtnText: {
+  closeBtnText: {
     fontSize: 14,
     fontWeight: "800",
     color: "#000000",

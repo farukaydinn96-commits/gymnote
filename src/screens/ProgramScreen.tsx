@@ -3,38 +3,41 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   ScrollView,
+  TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
+  Alert,
   Platform,
 } from "react-native";
-import * as Haptics from "expo-haptics";
 import {
-  Plus,
-  CheckCircle2,
-  Moon,
-  RotateCcw,
-  Copy,
   Briefcase,
+  CheckCircle2,
+  Copy,
+  Moon,
+  Plus,
+  RotateCcw,
+  SlidersHorizontal,
 } from "lucide-react-native";
 import {
+  AppSettings,
   DayId,
   DayPlan,
   Exercise,
-  AppSettings,
   ShiftType,
 } from "../types/workout";
 import { COLORS } from "../constants/theme";
+import { DAY_NAMES, SHIFT_NAMES, STRINGS } from "../constants/i18n";
+import { SPLIT_TEMPLATES } from "../constants/templates";
 import { resolveBackgroundSource } from "../constants/backgrounds";
-import { DAY_NAMES, SHIFT_META, STRINGS } from "../constants/i18n";
-import { DayStrip } from "../components/DayStrip";
 import { MotivationCard } from "../components/MotivationCard";
+import { DayStrip } from "../components/DayStrip";
 import { ExerciseRow } from "../components/ExerciseRow";
 
 interface Props {
   days: DayPlan[];
   selectedDayId: DayId;
+  todayDayId: DayId;
+  isLoggedToday: boolean;
   settings: AppSettings;
   accentHex: string;
   onSelectDay: (id: DayId) => void;
@@ -48,22 +51,20 @@ interface Props {
   onDeleteExercise: (dayId: DayId, exId: string) => void;
   onMoveExercise: (dayId: DayId, index: number, direction: -1 | 1) => void;
   onCopyDay: (fromDayId: DayId, toDayId: DayId) => void;
+  onApplyTemplate: (days: DayPlan[], name: string) => void;
   onFinishWorkout: (day: DayPlan) => void;
   onResetWeek: () => void;
   onChangeQuote: (quote: string) => void;
+  onTriggerRestTimer: () => void;
 }
 
-const SHIFT_OPTIONS: ShiftType[] = [
-  "none",
-  "morning",
-  "evening",
-  "night",
-  "off",
-];
+const SHIFT_ORDER: ShiftType[] = ["none", "morning", "evening", "night", "off"];
 
 export const ProgramScreen: React.FC<Props> = ({
   days,
   selectedDayId,
+  todayDayId,
+  isLoggedToday,
   settings,
   accentHex,
   onSelectDay,
@@ -73,330 +74,355 @@ export const ProgramScreen: React.FC<Props> = ({
   onDeleteExercise,
   onMoveExercise,
   onCopyDay,
+  onApplyTemplate,
   onFinishWorkout,
   onResetWeek,
   onChangeQuote,
+  onTriggerRestTimer,
 }) => {
-  const [quickText, setQuickText] = useState("");
-  const [copyOpen, setCopyOpen] = useState(false);
-  const [shiftOpen, setShiftOpen] = useState(false);
+  const [quickInput, setQuickInput] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [showShiftBar, setShowShiftBar] = useState(false);
+  const [showCopyBar, setShowCopyBar] = useState(false);
 
-  const lang = settings.lang || "tr";
+  const lang = settings.lang || "en";
   const t = STRINGS[lang];
+  const day = days.find((d) => d.id === selectedDayId) || days[0];
 
-  const currentDay = days.find((d) => d.id === selectedDayId) || days[0];
-  const totalCount = currentDay.exercises.length;
-  const completedCount = currentDay.exercises.filter((e) => e.completed).length;
-  const progress = totalCount > 0 ? completedCount / totalCount : 0;
+  const totalCount = day.exercises.length;
+  const completedCount = day.exercises.filter((e) => e.completed).length;
+  const hasAnyCompletedSet = day.exercises.some(
+    (e) => e.completed || (e.sets && e.sets.some((s) => s.completed)),
+  );
+  const progressRatio = totalCount > 0 ? completedCount / totalCount : 0;
 
-  const activeShift = currentDay.shift || "none";
+  const parseQuickAdd = () => {
+    const raw = quickInput.trim();
+    if (!raw) return;
 
-  const handleQuickAdd = () => {
-    const trimmed = quickText.trim();
-    if (!trimmed) return;
-    const match = trimmed.match(/^(.*?)(\s+\d+x\d+.*)$/i);
-    const name = match ? match[1].trim() : trimmed;
-    const detail = match ? match[2].trim() : "";
-
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const match = raw.match(/^(.*?)\s+(\d+\s*[xX×]\s*\d+.*)$/);
+    if (match) {
+      onAddExercise(day.id, match[1].trim(), match[2].trim());
+    } else {
+      onAddExercise(day.id, raw, "3 × 10");
     }
-    onAddExercise(currentDay.id, name, detail);
-    setQuickText("");
+    setQuickInput("");
+  };
+
+  const handlePressFinish = () => {
+    if (!hasAnyCompletedSet) return;
+
+    if (completedCount < totalCount) {
+      const msg = t.partialFinishMsg
+        .replace("{done}", String(completedCount))
+        .replace("{total}", String(totalCount));
+
+      if (Platform.OS === "web") {
+        if (window.confirm(msg)) onFinishWorkout(day);
+        return;
+      }
+
+      Alert.alert(t.partialFinishTitle, msg, [
+        { text: t.cancel, style: "cancel" },
+        { text: t.saveAnyway, onPress: () => onFinishWorkout(day) },
+      ]);
+      return;
+    }
+
+    onFinishWorkout(day);
+  };
+
+  const cycleShift = () => {
+    const nextIdx = (SHIFT_ORDER.indexOf(day.shift) + 1) % SHIFT_ORDER.length;
+    onUpdateDay(day.id, { shift: SHIFT_ORDER[nextIdx] });
+    setShowShiftBar(true);
   };
 
   return (
-    <KeyboardAvoidingView
+    <ScrollView
       style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
     >
-      <ScrollView
-        style={styles.flex}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <MotivationCard
-          quote={settings.quote}
-          bgSource={resolveBackgroundSource(settings)}
-          bgOpacity={settings.bgOpacity}
-          accentHex={accentHex}
-          onChangeQuote={onChangeQuote}
-        />
+      <MotivationCard
+        quote={settings.quote}
+        bgSource={resolveBackgroundSource(settings)}
+        bgOpacity={settings.bgOpacity}
+        accentHex={accentHex}
+        onChangeQuote={onChangeQuote}
+      />
 
-        <DayStrip
-          days={days}
-          selectedDayId={selectedDayId}
-          accentHex={accentHex}
-          lang={lang}
-          onSelect={(id) => {
-            setCopyOpen(false);
-            setShiftOpen(false);
-            onSelectDay(id);
-          }}
-        />
+      <DayStrip
+        days={days}
+        selectedDayId={selectedDayId}
+        todayDayId={todayDayId}
+        accentHex={accentHex}
+        lang={lang}
+        onSelect={onSelectDay}
+      />
 
-        <View style={styles.headerRow}>
-          <View style={styles.flex}>
-            <View style={styles.dayMetaRow}>
-              <Text style={styles.daySub}>
-                {DAY_NAMES[lang][currentDay.id].full}
+      <View style={styles.dayHeader}>
+        <View style={styles.dayTitleWrap}>
+          <View style={styles.dayLabelRow}>
+            <Text style={styles.fullDayLabel}>
+              {DAY_NAMES[lang][day.id].full}
+            </Text>
+            {day.shift !== "none" && (
+              <Text style={styles.shiftBadge}>
+                {SHIFT_NAMES[lang][day.shift]}
+                {day.shiftHours ? ` · ${day.shiftHours}` : ""}
               </Text>
-              {activeShift !== "none" && (
-                <View style={[styles.shiftChip, { borderColor: accentHex }]}>
-                  <Text style={[styles.shiftChipText, { color: accentHex }]}>
-                    {SHIFT_META[activeShift][lang]}
-                    {currentDay.shiftHours ? ` • ${currentDay.shiftHours}` : ""}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <TextInput
-              value={currentDay.title}
-              onChangeText={(title) => onUpdateDay(currentDay.id, { title })}
-              style={styles.dayTitleInput}
-              placeholder={t.dayTitlePlaceholder}
-              placeholderTextColor={COLORS.textMuted}
-            />
-          </View>
-
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              onPress={() => {
-                setCopyOpen(false);
-                setShiftOpen((v) => !v);
-              }}
-              style={[
-                styles.iconBtn,
-                (shiftOpen || activeShift !== "none") && {
-                  borderColor: accentHex,
-                },
-              ]}
-            >
-              <Briefcase
-                size={14}
-                color={
-                  shiftOpen || activeShift !== "none"
-                    ? accentHex
-                    : COLORS.textSecondary
-                }
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
-                setShiftOpen(false);
-                setCopyOpen((v) => !v);
-              }}
-              style={[styles.iconBtn, copyOpen && { borderColor: accentHex }]}
-            >
-              <Copy
-                size={14}
-                color={copyOpen ? accentHex : COLORS.textSecondary}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
-                if (Platform.OS !== "web") Haptics.selectionAsync();
-                onUpdateDay(currentDay.id, {
-                  isRestDay: !currentDay.isRestDay,
-                });
-              }}
-              style={[
-                styles.smallBtn,
-                currentDay.isRestDay && { borderColor: accentHex },
-              ]}
-            >
-              <Moon
-                size={14}
-                color={currentDay.isRestDay ? accentHex : COLORS.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.smallBtnText,
-                  currentDay.isRestDay && { color: accentHex },
-                ]}
-              >
-                {t.restMode}
+            )}
+            {isLoggedToday && day.id === todayDayId && (
+              <Text style={[styles.loggedTag, { color: accentHex }]}>
+                ✓ {t.loggedTodayBadge}
               </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={onResetWeek} style={styles.iconBtn}>
-              <RotateCcw size={14} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Vardiya & Çalışma Planlayıcı Çubuğu */}
-        {shiftOpen && (
-          <View style={styles.toolPanel}>
-            <View style={styles.shiftPillsRow}>
-              {SHIFT_OPTIONS.map((st) => {
-                const selected = activeShift === st;
-                return (
-                  <TouchableOpacity
-                    key={st}
-                    onPress={() =>
-                      onUpdateDay(currentDay.id, {
-                        shift: st,
-                        shiftHours:
-                          st === "none"
-                            ? ""
-                            : currentDay.shiftHours ||
-                              SHIFT_META[st].defaultHours,
-                      })
-                    }
-                    style={[
-                      styles.copyPill,
-                      selected && {
-                        borderColor: accentHex,
-                        borderWidth: 1,
-                        backgroundColor: "rgba(255,255,255,0.08)",
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.copyPillText,
-                        selected && { color: accentHex },
-                      ]}
-                    >
-                      {SHIFT_META[st][lang]}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {activeShift !== "none" && (
-              <TextInput
-                value={currentDay.shiftHours || ""}
-                onChangeText={(shiftHours) =>
-                  onUpdateDay(currentDay.id, { shiftHours })
-                }
-                placeholder={t.shiftHoursPlaceholder}
-                placeholderTextColor={COLORS.textMuted}
-                style={styles.shiftHoursInput}
-              />
             )}
           </View>
-        )}
 
-        {/* Günü Başka Güne Kopyala Çubuğu */}
-        {copyOpen && (
-          <View style={styles.copyBar}>
-            <Text style={styles.copyLabel}>{t.copyTo}</Text>
-            <View style={styles.copyDays}>
+          <TextInput
+            value={day.title}
+            onChangeText={(title) => onUpdateDay(day.id, { title })}
+            placeholder={t.dayTitlePlaceholder}
+            placeholderTextColor={COLORS.textMuted}
+            style={styles.dayTitleInput}
+          />
+        </View>
+
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={cycleShift}
+            style={[
+              styles.toolBtn,
+              day.shift !== "none" && { borderColor: "#38BDF8" },
+            ]}
+          >
+            <Briefcase
+              size={14}
+              color={day.shift !== "none" ? "#38BDF8" : COLORS.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => onUpdateDay(day.id, { isRestDay: !day.isRestDay })}
+            style={[
+              styles.toolPill,
+              day.isRestDay && { borderColor: accentHex },
+            ]}
+          >
+            <Moon
+              size={13}
+              color={day.isRestDay ? accentHex : COLORS.textSecondary}
+            />
+            <Text
+              style={[
+                styles.toolPillText,
+                day.isRestDay && { color: accentHex },
+              ]}
+            >
+              {t.rest}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setEditMode((p) => !p)}
+            style={[
+              styles.toolPill,
+              editMode && {
+                backgroundColor: accentHex,
+                borderColor: accentHex,
+              },
+            ]}
+          >
+            <SlidersHorizontal
+              size={13}
+              color={editMode ? "#000000" : COLORS.textSecondary}
+            />
+            <Text
+              style={[
+                styles.toolPillText,
+                editMode && { color: "#000000", fontWeight: "800" },
+              ]}
+            >
+              {editMode ? t.doneEditing : t.editMode}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {showShiftBar && day.shift !== "none" && (
+        <View style={styles.subToolbar}>
+          <TextInput
+            value={day.shiftHours}
+            onChangeText={(shiftHours) => onUpdateDay(day.id, { shiftHours })}
+            placeholder={t.shiftHoursPlaceholder}
+            placeholderTextColor={COLORS.textMuted}
+            style={styles.shiftInput}
+          />
+        </View>
+      )}
+
+      {editMode && (
+        <View style={styles.editPanel}>
+          <View style={styles.editTopActions}>
+            <TouchableOpacity
+              onPress={() => setShowCopyBar((p) => !p)}
+              style={styles.editSubBtn}
+            >
+              <Copy size={13} color={COLORS.textPrimary} />
+              <Text style={styles.editSubBtnText}>{t.copyDayLabel}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={onResetWeek} style={styles.editSubBtn}>
+              <RotateCcw size={13} color={accentHex} />
+              <Text style={[styles.editSubBtnText, { color: accentHex }]}>
+                {t.resetWeekTitle}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {showCopyBar && (
+            <View style={styles.copyTargetsRow}>
               {days
-                .filter((d) => d.id !== currentDay.id)
-                .map((d) => (
+                .filter((d) => d.id !== day.id)
+                .map((target) => (
                   <TouchableOpacity
-                    key={d.id}
+                    key={target.id}
                     onPress={() => {
-                      onCopyDay(currentDay.id, d.id);
-                      setCopyOpen(false);
+                      onCopyDay(day.id, target.id);
+                      setShowCopyBar(false);
                     }}
-                    style={styles.copyPill}
+                    style={styles.copyChip}
                   >
-                    <Text style={styles.copyPillText}>
-                      {DAY_NAMES[lang][d.id].short}
+                    <Text style={styles.copyChipText}>
+                      {DAY_NAMES[lang][target.id].short}
                     </Text>
                   </TouchableOpacity>
                 ))}
             </View>
-          </View>
-        )}
+          )}
 
-        {!currentDay.isRestDay && totalCount > 0 && (
-          <View style={styles.progressWrap}>
+          <Text style={styles.templateHeader}>{t.splitTemplates}</Text>
+          <View style={styles.templateList}>
+            {SPLIT_TEMPLATES.map((tpl) => (
+              <TouchableOpacity
+                key={tpl.id}
+                onPress={() => onApplyTemplate(tpl.days, tpl.name[lang])}
+                style={styles.templateItem}
+              >
+                <View style={styles.flex}>
+                  <Text style={styles.templateName}>{tpl.name[lang]}</Text>
+                  <Text style={styles.templateSub}>{tpl.sub[lang]}</Text>
+                </View>
+                <Text style={[styles.templateLoad, { color: accentHex }]}>
+                  {t.loadBtn}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {day.isRestDay ? (
+        <View style={styles.restCard}>
+          <Moon size={26} color={accentHex} />
+          <Text style={styles.restTitle}>{t.restDayTitle}</Text>
+          <Text style={styles.restSub}>{t.restDaySub}</Text>
+        </View>
+      ) : (
+        <>
+          <View style={styles.progressRow}>
             <View style={styles.progressTrack}>
               <View
                 style={[
                   styles.progressFill,
-                  { width: `${progress * 100}%`, backgroundColor: accentHex },
+                  {
+                    width: `${progressRatio * 100}%`,
+                    backgroundColor: accentHex,
+                  },
                 ]}
               />
             </View>
-            <Text style={styles.progressText}>
+            <Text style={styles.progressCount}>
               {completedCount}/{totalCount}
             </Text>
           </View>
-        )}
 
-        {currentDay.isRestDay ? (
-          <View style={styles.restBox}>
-            <Moon size={28} color={COLORS.textMuted} />
-            <Text style={styles.restTitle}>{t.restTitle}</Text>
-            <Text style={styles.restSub}>{t.restSub}</Text>
-          </View>
-        ) : (
-          <View>
-            {currentDay.exercises.map((ex, idx) => (
+          {day.exercises.length === 0 ? (
+            <Text style={styles.emptyText}>{t.emptyExercises}</Text>
+          ) : (
+            day.exercises.map((ex, idx) => (
               <ExerciseRow
                 key={ex.id}
-                index={idx}
-                isFirst={idx === 0}
-                isLast={idx === currentDay.exercises.length - 1}
                 exercise={ex}
+                index={idx}
+                total={day.exercises.length}
+                editMode={editMode}
                 accentHex={accentHex}
-                lastPrefix={t.lastPrefix}
-                onToggle={() =>
-                  onUpdateExercise(currentDay.id, ex.id, {
-                    completed: !ex.completed,
-                  })
-                }
-                onUpdate={(patch) =>
-                  onUpdateExercise(currentDay.id, ex.id, patch)
-                }
-                onDelete={() => onDeleteExercise(currentDay.id, ex.id)}
-                onMoveUp={() => onMoveExercise(currentDay.id, idx, -1)}
-                onMoveDown={() => onMoveExercise(currentDay.id, idx, 1)}
+                lang={lang}
+                onUpdate={(patch) => onUpdateExercise(day.id, ex.id, patch)}
+                onDelete={() => onDeleteExercise(day.id, ex.id)}
+                onMove={(dir) => onMoveExercise(day.id, idx, dir)}
+                onSetCompleted={onTriggerRestTimer}
               />
-            ))}
+            ))
+          )}
 
-            <View style={styles.quickAddRow}>
-              <Plus size={16} color={COLORS.textMuted} />
-              <TextInput
-                value={quickText}
-                onChangeText={setQuickText}
-                onSubmitEditing={handleQuickAdd}
-                placeholder={t.quickAddPlaceholder}
-                placeholderTextColor={COLORS.textMuted}
-                style={styles.quickInput}
-                returnKeyType="done"
-              />
-              {quickText.trim().length > 0 && (
-                <TouchableOpacity onPress={handleQuickAdd}>
-                  <Text style={[styles.addAction, { color: accentHex }]}>
-                    {t.addBtn}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {totalCount > 0 && (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => {
-                  if (Platform.OS !== "web") {
-                    Haptics.notificationAsync(
-                      Haptics.NotificationFeedbackType.Success,
-                    );
-                  }
-                  onFinishWorkout(currentDay);
-                }}
-                style={[styles.finishBtn, { backgroundColor: accentHex }]}
-              >
-                <CheckCircle2 size={18} color="#000000" strokeWidth={2.5} />
-                <Text style={styles.finishBtnText}>{t.finishBtn}</Text>
+          <View style={styles.quickAddBox}>
+            <Plus size={16} color={COLORS.textSecondary} />
+            <TextInput
+              value={quickInput}
+              onChangeText={setQuickInput}
+              onSubmitEditing={parseQuickAdd}
+              placeholder={t.quickAddPlaceholder}
+              placeholderTextColor={COLORS.textSecondary}
+              returnKeyType="done"
+              style={styles.quickAddInput}
+            />
+            {quickInput.trim().length > 0 && (
+              <TouchableOpacity onPress={parseQuickAdd} style={styles.addBtn}>
+                <Text style={[styles.addBtnText, { color: accentHex }]}>+</Text>
               </TouchableOpacity>
             )}
           </View>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          {day.exercises.length > 0 && (
+            <View style={styles.finishWrap}>
+              <TouchableOpacity
+                activeOpacity={hasAnyCompletedSet ? 0.85 : 1}
+                disabled={!hasAnyCompletedSet}
+                onPress={handlePressFinish}
+                style={[
+                  styles.finishBtn,
+                  hasAnyCompletedSet
+                    ? { backgroundColor: accentHex }
+                    : styles.finishBtnDisabled,
+                ]}
+              >
+                <CheckCircle2
+                  size={18}
+                  color={hasAnyCompletedSet ? "#000000" : COLORS.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.finishBtnText,
+                    !hasAnyCompletedSet && { color: COLORS.textMuted },
+                  ]}
+                >
+                  {isLoggedToday && day.id === todayDayId
+                    ? t.updateWorkout
+                    : t.finishWorkout}
+                </Text>
+              </TouchableOpacity>
+
+              {!hasAnyCompletedSet && (
+                <Text style={styles.disabledHint}>{t.completeAtLeastOne}</Text>
+              )}
+            </View>
+          )}
+        </>
+      )}
+    </ScrollView>
   );
 };
 
@@ -404,36 +430,42 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 110,
+    paddingTop: 14,
+    paddingBottom: 130,
   },
-  headerRow: {
+  dayHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     justifyContent: "space-between",
-    marginBottom: 14,
-    gap: 8,
+    gap: 10,
+    marginBottom: 12,
   },
-  dayMetaRow: {
+  dayTitleWrap: {
+    flex: 1,
+  },
+  dayLabelRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: 8,
     marginBottom: 3,
   },
-  daySub: {
+  fullDayLabel: {
     fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1.2,
+    fontWeight: "800",
+    letterSpacing: 1.1,
     color: COLORS.textSecondary,
   },
-  shiftChip: {
+  shiftBadge: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#38BDF8",
+    backgroundColor: "rgba(56,189,248,0.12)",
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
-    borderWidth: 1,
-    backgroundColor: "rgba(255,255,255,0.04)",
   },
-  shiftChipText: {
+  loggedTag: {
     fontSize: 10,
     fontWeight: "800",
   },
@@ -441,99 +473,138 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "800",
     color: COLORS.textPrimary,
-    letterSpacing: -0.5,
-    padding: 0,
+    paddingVertical: 2,
   },
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
-  smallBtn: {
+  toolBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toolPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    height: 34,
+    paddingHorizontal: 11,
     borderRadius: 10,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
   },
-  smallBtnText: {
+  toolPillText: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
     color: COLORS.textSecondary,
   },
-  iconBtn: {
-    padding: 8,
+  subToolbar: {
+    marginBottom: 12,
+  },
+  shiftInput: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     borderRadius: 10,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    color: COLORS.textPrimary,
+    fontSize: 13,
   },
-  toolPanel: {
-    padding: 12,
-    borderRadius: 12,
+  editPanel: {
+    padding: 14,
+    borderRadius: 14,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 14,
     gap: 10,
   },
-  shiftPillsRow: {
+  editTopActions: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  shiftHoursInput: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: "#0A0A0C",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    fontSize: 12,
-    color: COLORS.textPrimary,
-  },
-  copyBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 14,
     gap: 8,
   },
-  copyLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: COLORS.textSecondary,
-  },
-  copyDays: {
+  editSubBtn: {
+    flex: 1,
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
+    paddingVertical: 9,
+    borderRadius: 10,
+    backgroundColor: "#09090B",
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  copyPill: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: "#1C1C20",
-  },
-  copyPillText: {
+  editSubBtnText: {
     fontSize: 11,
     fontWeight: "700",
     color: COLORS.textPrimary,
   },
-  progressWrap: {
+  copyTargetsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  copyChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#09090B",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  copyChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+  },
+  templateHeader: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+  },
+  templateList: {
+    gap: 6,
+  },
+  templateItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#09090B",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  templateName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+  },
+  templateSub: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  templateLoad: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  progressRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   progressTrack: {
     flex: 1,
@@ -546,33 +617,46 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 2,
   },
-  progressText: {
-    fontSize: 11,
+  progressCount: {
+    fontSize: 12,
     fontWeight: "700",
     color: COLORS.textSecondary,
     fontVariant: ["tabular-nums"],
   },
-  quickAddRow: {
+  emptyText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    paddingVertical: 18,
+    textAlign: "center",
+  },
+  quickAddBox: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: COLORS.border,
+    borderColor: COLORS.textMuted,
+    backgroundColor: "rgba(255,255,255,0.02)",
     marginTop: 4,
   },
-  quickInput: {
+  quickAddInput: {
     flex: 1,
     fontSize: 14,
     color: COLORS.textPrimary,
-    padding: 0,
   },
-  addAction: {
-    fontSize: 13,
-    fontWeight: "700",
+  addBtn: {
+    paddingHorizontal: 8,
+  },
+  addBtnText: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  finishWrap: {
+    marginTop: 16,
+    gap: 6,
   },
   finishBtn: {
     flexDirection: "row",
@@ -581,26 +665,35 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 15,
     borderRadius: 14,
-    marginTop: 18,
+  },
+  finishBtnDisabled: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   finishBtnText: {
     fontSize: 15,
     fontWeight: "800",
     color: "#000000",
   },
-  restBox: {
-    alignItems: "center",
-    paddingVertical: 48,
-    paddingHorizontal: 24,
+  disabledHint: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+  },
+  restCard: {
+    padding: 28,
     borderRadius: 16,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 10,
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
   },
   restTitle: {
     fontSize: 17,
-    fontWeight: "700",
+    fontWeight: "800",
     color: COLORS.textPrimary,
   },
   restSub: {

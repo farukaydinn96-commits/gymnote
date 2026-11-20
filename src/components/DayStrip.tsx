@@ -9,11 +9,12 @@ import {
 import * as Haptics from "expo-haptics";
 import { DayId, DayPlan, Lang } from "../types/workout";
 import { COLORS } from "../constants/theme";
-import { DAY_NAMES, SHIFT_META } from "../constants/i18n";
+import { DAY_NAMES } from "../constants/i18n";
 
 interface Props {
   days: DayPlan[];
   selectedDayId: DayId;
+  todayDayId: DayId;
   accentHex: string;
   lang: Lang;
   onSelect: (id: DayId) => void;
@@ -22,18 +23,21 @@ interface Props {
 export const DayStrip: React.FC<Props> = ({
   days,
   selectedDayId,
+  todayDayId,
   accentHex,
   lang,
   onSelect,
 }) => {
   return (
-    <View style={styles.strip}>
+    <View style={styles.row}>
       {days.map((day) => {
         const active = day.id === selectedDayId;
-        const hasWorkout = !day.isRestDay && day.exercises.length > 0;
-        const allDone = hasWorkout && day.exercises.every((e) => e.completed);
-        const shiftCode =
-          day.shift && day.shift !== "none" ? SHIFT_META[day.shift].code : "";
+        const isToday = day.id === todayDayId;
+        const hasShift = day.shift !== "none";
+        const allDone =
+          !day.isRestDay &&
+          day.exercises.length > 0 &&
+          day.exercises.every((e) => e.completed);
 
         return (
           <TouchableOpacity
@@ -45,31 +49,41 @@ export const DayStrip: React.FC<Props> = ({
             }}
             style={[
               styles.pill,
-              active && { borderColor: accentHex, backgroundColor: "#121216" },
+              active && {
+                borderColor: accentHex,
+                backgroundColor: "rgba(255,255,255,0.06)",
+              },
             ]}
           >
             <Text
               style={[
-                styles.label,
+                styles.shortText,
                 active && { color: COLORS.textPrimary, fontWeight: "800" },
+                isToday && !active && { color: accentHex },
               ]}
             >
               {DAY_NAMES[lang][day.id].short}
             </Text>
 
-            {shiftCode ? (
-              <Text style={[styles.shiftBadge, active && { color: accentHex }]}>
-                {shiftCode}
-              </Text>
-            ) : (
+            <View style={styles.dotsRow}>
               <View
                 style={[
                   styles.dot,
-                  hasWorkout && { backgroundColor: COLORS.textMuted },
-                  allDone && { backgroundColor: accentHex },
+                  {
+                    backgroundColor: day.isRestDay
+                      ? "transparent"
+                      : allDone
+                        ? accentHex
+                        : COLORS.textMuted,
+                  },
                 ]}
               />
-            )}
+              {hasShift && (
+                <View
+                  style={[styles.shiftDot, { backgroundColor: "#38BDF8" }]}
+                />
+              )}
+            </View>
           </TouchableOpacity>
         );
       })}
@@ -78,7 +92,7 @@ export const DayStrip: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
-  strip: {
+  row: {
     flexDirection: "row",
     gap: 6,
     marginBottom: 18,
@@ -94,22 +108,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 5,
   },
-  label: {
+  shortText: {
     fontSize: 11,
     fontWeight: "700",
+    letterSpacing: 0.6,
     color: COLORS.textSecondary,
-    letterSpacing: 0.4,
+  },
+  dotsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    height: 5,
   },
   dot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "transparent",
   },
-  shiftBadge: {
-    fontSize: 8,
-    fontWeight: "800",
-    color: COLORS.textMuted,
-    letterSpacing: 0.5,
+  shiftDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
 });

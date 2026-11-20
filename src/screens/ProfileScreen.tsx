@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -11,57 +11,37 @@ import {
   Platform,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import {
-  ChevronDown,
-  ChevronUp,
-  Flame,
-  Download,
-  Upload,
-  Trophy,
-} from "lucide-react-native";
-import {
-  AccentKey,
-  AppSettings,
-  DayPlan,
-  Lang,
-  WorkoutLog,
-} from "../types/workout";
+import { Download, Upload, UserCheck } from "lucide-react-native";
+import { AccentKey, AppSettings, DayPlan, Lang } from "../types/workout";
 import { ACCENTS, COLORS } from "../constants/theme";
 import { SPLIT_TEMPLATES } from "../constants/templates";
 import { BG_PRESETS, BgPreset } from "../constants/backgrounds";
 import { STRINGS } from "../constants/i18n";
 
 interface Props {
-  logs: WorkoutLog[];
   settings: AppSettings;
   accentHex: string;
-  onChangeAccent: (accent: AccentKey) => void;
-  onToggleOled: (val: boolean) => void;
+  totalSessions: number;
+  onUpdateSettings: (patch: Partial<AppSettings>) => void;
   onChangeLang: (lang: Lang) => void;
-  onChangeBodyWeight: (val: string) => void;
   onApplyTemplate: (days: DayPlan[], name: string) => void;
   onSelectPresetBg: (preset: BgPreset) => void;
-  onChangeBgOpacity: (val: number) => void;
   onOpenExport: () => void;
   onOpenImport: () => void;
 }
 
 export const ProfileScreen: React.FC<Props> = ({
-  logs,
   settings,
   accentHex,
-  onChangeAccent,
-  onToggleOled,
+  totalSessions,
+  onUpdateSettings,
   onChangeLang,
-  onChangeBodyWeight,
   onApplyTemplate,
   onSelectPresetBg,
-  onChangeBgOpacity,
   onOpenExport,
   onOpenImport,
 }) => {
-  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
-  const lang = settings.lang || "tr";
+  const lang = settings.lang || "en";
   const t = STRINGS[lang];
 
   const darknessLevels = [
@@ -70,36 +50,13 @@ export const ProfileScreen: React.FC<Props> = ({
     { label: t.dark, val: 0.65 },
   ];
 
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const loggedDates = new Set(logs.map((l) => l.dateISO));
-
-  const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}`;
-  const thisMonthCount = logs.filter((l) =>
-    l.dateISO.startsWith(monthPrefix),
-  ).length;
-
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(now.getDate() - 7);
-  const thisWeekCount = logs.filter(
-    (l) => new Date(l.dateISO) >= sevenDaysAgo,
-  ).length;
-
-  let streak = 0;
-  const cursor = new Date();
-  for (let i = 0; i < 60; i++) {
-    const iso = cursor.toISOString().split("T")[0];
-    if (loggedDates.has(iso)) {
-      streak++;
-      cursor.setDate(cursor.getDate() - 1);
-    } else if (i === 0) {
-      cursor.setDate(cursor.getDate() - 1);
-    } else {
-      break;
-    }
-  }
+  const autoRestOptions = [0, 60, 90, 120];
+  const initials = (settings.userName || "GY")
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <ScrollView
@@ -107,13 +64,38 @@ export const ProfileScreen: React.FC<Props> = ({
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.titleRow}>
-        <Text style={styles.pageTitle}>{t.profileTitle}</Text>
+      <Text style={styles.pageTitle}>{t.profileTitle}</Text>
+
+      {/* Sporcu Profil Kartı */}
+      <View style={styles.athleteCard}>
+        <View style={[styles.avatar, { borderColor: accentHex }]}>
+          <Text style={[styles.avatarText, { color: accentHex }]}>
+            {initials}
+          </Text>
+        </View>
+
+        <View style={styles.athleteInputs}>
+          <TextInput
+            value={settings.userName || ""}
+            onChangeText={(userName) => onUpdateSettings({ userName })}
+            placeholder={t.athleteNamePlaceholder}
+            placeholderTextColor={COLORS.textMuted}
+            style={styles.nameInput}
+          />
+          <TextInput
+            value={settings.userGoal || ""}
+            onChangeText={(userGoal) => onUpdateSettings({ userGoal })}
+            placeholder={t.athleteGoalPlaceholder}
+            placeholderTextColor={COLORS.textMuted}
+            style={styles.goalInput}
+          />
+        </View>
+
         <View style={styles.weightBox}>
           <Text style={styles.weightPrefix}>KG</Text>
           <TextInput
             value={settings.bodyWeight || ""}
-            onChangeText={onChangeBodyWeight}
+            onChangeText={(bodyWeight) => onUpdateSettings({ bodyWeight })}
             placeholder="78.5"
             placeholderTextColor={COLORS.textMuted}
             keyboardType="decimal-pad"
@@ -122,64 +104,7 @@ export const ProfileScreen: React.FC<Props> = ({
         </View>
       </View>
 
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: accentHex }]}>
-            {thisWeekCount}
-          </Text>
-          <Text style={styles.statLabel}>{t.thisWeek}</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{thisMonthCount}</Text>
-          <Text style={styles.statLabel}>{t.thisMonth}</Text>
-        </View>
-        <View style={styles.statCard}>
-          <View style={styles.streakRow}>
-            <Flame
-              size={16}
-              color={streak > 0 ? accentHex : COLORS.textMuted}
-            />
-            <Text style={styles.statValue}>{streak}</Text>
-          </View>
-          <Text style={styles.statLabel}>{t.dayStreak}</Text>
-        </View>
-      </View>
-
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>{t.monthlyMatrix}</Text>
-        <View style={styles.matrixGrid}>
-          {Array.from({ length: daysInMonth }, (_, i) => {
-            const dayNum = i + 1;
-            const iso = `${monthPrefix}-${String(dayNum).padStart(2, "0")}`;
-            const active = loggedDates.has(iso);
-            const isToday = dayNum === now.getDate();
-
-            return (
-              <View
-                key={iso}
-                style={[
-                  styles.matrixCell,
-                  active && {
-                    backgroundColor: accentHex,
-                    borderColor: accentHex,
-                  },
-                  isToday && !active && { borderColor: COLORS.textSecondary },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.matrixText,
-                    active && { color: "#000000", fontWeight: "800" },
-                  ]}
-                >
-                  {dayNum}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      </View>
-
+      {/* Hazır Split Şablonları */}
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>{t.splitTemplates}</Text>
         <View style={styles.templateList}>
@@ -187,12 +112,12 @@ export const ProfileScreen: React.FC<Props> = ({
             <TouchableOpacity
               key={tpl.id}
               activeOpacity={0.75}
-              onPress={() => onApplyTemplate(tpl.days, tpl.name)}
+              onPress={() => onApplyTemplate(tpl.days, tpl.name[lang])}
               style={styles.templateRow}
             >
               <View style={styles.flex}>
-                <Text style={styles.templateName}>{tpl.name}</Text>
-                <Text style={styles.templateSub}>{tpl.sub}</Text>
+                <Text style={styles.templateName}>{tpl.name[lang]}</Text>
+                <Text style={styles.templateSub}>{tpl.sub[lang]}</Text>
               </View>
               <Text style={[styles.applyText, { color: accentHex }]}>
                 {t.loadBtn}
@@ -202,6 +127,7 @@ export const ProfileScreen: React.FC<Props> = ({
         </View>
       </View>
 
+      {/* Tema, Dil, Otomatik Sayaç ve Sahneler */}
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>{t.themeAtmosphere}</Text>
 
@@ -214,7 +140,7 @@ export const ProfileScreen: React.FC<Props> = ({
                 key={key}
                 onPress={() => {
                   if (Platform.OS !== "web") Haptics.selectionAsync();
-                  onChangeAccent(key);
+                  onUpdateSettings({ accent: key });
                 }}
                 style={[
                   styles.colorDot,
@@ -226,7 +152,6 @@ export const ProfileScreen: React.FC<Props> = ({
           })}
         </View>
 
-        {/* Dil Seçici */}
         <View style={styles.settingRow}>
           <Text style={styles.settingLabel}>{t.languageLabel}</Text>
           <View style={styles.darknessPills}>
@@ -259,10 +184,42 @@ export const ProfileScreen: React.FC<Props> = ({
         </View>
 
         <View style={styles.settingRow}>
+          <Text style={styles.settingLabel}>{t.autoRestLabel}</Text>
+          <View style={styles.darknessPills}>
+            {autoRestOptions.map((sec) => {
+              const current = settings.autoRestSec ?? 90;
+              const active = current === sec;
+              return (
+                <TouchableOpacity
+                  key={sec}
+                  onPress={() => onUpdateSettings({ autoRestSec: sec })}
+                  style={[
+                    styles.darkPill,
+                    active && {
+                      borderColor: accentHex,
+                      backgroundColor: "rgba(255,255,255,0.06)",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.darkPillText,
+                      active && { color: accentHex },
+                    ]}
+                  >
+                    {sec === 0 ? "OFF" : `${sec}s`}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.settingRow}>
           <Text style={styles.settingLabel}>{t.oledMode}</Text>
           <Switch
             value={settings.oledMode}
-            onValueChange={onToggleOled}
+            onValueChange={(oledMode) => onUpdateSettings({ oledMode })}
             trackColor={{ false: COLORS.border, true: accentHex }}
             thumbColor="#FFFFFF"
           />
@@ -288,7 +245,7 @@ export const ProfileScreen: React.FC<Props> = ({
                   resizeMode="cover"
                 />
                 <View style={styles.presetLabelWrap}>
-                  <Text style={styles.presetLabel}>{bg.label}</Text>
+                  <Text style={styles.presetLabel}>{bg.label[lang]}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -303,7 +260,7 @@ export const ProfileScreen: React.FC<Props> = ({
               return (
                 <TouchableOpacity
                   key={lvl.label}
-                  onPress={() => onChangeBgOpacity(lvl.val)}
+                  onPress={() => onUpdateSettings({ bgOpacity: lvl.val })}
                   style={[
                     styles.darkPill,
                     active && {
@@ -327,9 +284,16 @@ export const ProfileScreen: React.FC<Props> = ({
         </View>
       </View>
 
-      {/* Veri Yedekleme & Geri Yükleme */}
+      {/* Yedekleme */}
       <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>{t.backupTitle}</Text>
+        <View style={styles.backupHeader}>
+          <Text style={styles.sectionTitle}>{t.backupTitle}</Text>
+          <View style={styles.totalSessionsChip}>
+            <UserCheck size={12} color={accentHex} />
+            <Text style={styles.totalSessionsText}>{totalSessions}</Text>
+          </View>
+        </View>
+
         <View style={styles.backupRow}>
           <TouchableOpacity onPress={onOpenExport} style={styles.backupBtn}>
             <Download size={15} color={accentHex} />
@@ -342,77 +306,6 @@ export const ProfileScreen: React.FC<Props> = ({
           </TouchableOpacity>
         </View>
       </View>
-
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>{t.historyTitle}</Text>
-        {logs.length === 0 ? (
-          <Text style={styles.emptyText}>{t.emptyHistory}</Text>
-        ) : (
-          logs.slice(0, 12).map((log) => {
-            const isOpen = expandedLogId === log.id;
-            return (
-              <View key={log.id} style={styles.logItem}>
-                <TouchableOpacity
-                  onPress={() => setExpandedLogId(isOpen ? null : log.id)}
-                  style={styles.logRow}
-                  activeOpacity={0.7}
-                >
-                  <View>
-                    <View style={styles.logTitleRow}>
-                      <Text style={styles.logTitle}>{log.dayTitle}</Text>
-                      {(log.prCount || 0) > 0 && (
-                        <View
-                          style={[styles.prMiniTag, { borderColor: accentHex }]}
-                        >
-                          <Trophy size={10} color={accentHex} />
-                          <Text
-                            style={[styles.prMiniText, { color: accentHex }]}
-                          >
-                            {log.prCount} PR
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.logDate}>{log.dateISO}</Text>
-                  </View>
-                  <View style={styles.logRight}>
-                    <Text style={[styles.logBadge, { color: accentHex }]}>
-                      {log.completedCount}/{log.totalCount}
-                    </Text>
-                    {isOpen ? (
-                      <ChevronUp size={15} color={COLORS.textSecondary} />
-                    ) : (
-                      <ChevronDown size={15} color={COLORS.textSecondary} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-
-                {isOpen && (
-                  <View style={styles.logDetails}>
-                    {log.exercises.map((ex) => (
-                      <View key={ex.id} style={styles.logExRow}>
-                        <Text
-                          style={[
-                            styles.logExName,
-                            !ex.completed && { color: COLORS.textMuted },
-                          ]}
-                        >
-                          {ex.completed ? "✓ " : "• "}
-                          {ex.name}
-                          {ex.isPR ? " 🏆" : ""}
-                        </Text>
-                        <Text style={styles.logExDetail}>
-                          {ex.detail || "-"}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            );
-          })
-        )}
-      </View>
     </ScrollView>
   );
 };
@@ -422,28 +315,62 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 110,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 18,
+    paddingBottom: 120,
   },
   pageTitle: {
     fontSize: 24,
     fontWeight: "800",
     color: COLORS.textPrimary,
     letterSpacing: -0.5,
+    marginBottom: 16,
+  },
+  athleteCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    backgroundColor: "#09090B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  athleteInputs: {
+    flex: 1,
+    gap: 2,
+  },
+  nameInput: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: COLORS.textPrimary,
+    paddingVertical: 2,
+  },
+  goalInput: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    paddingVertical: 2,
   },
   weightBox: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: COLORS.surface,
+    backgroundColor: "#09090B",
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -459,37 +386,6 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
     padding: 0,
     textAlign: "right",
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 16,
-  },
-  statCard: {
-    flex: 1,
-    paddingVertical: 16,
-    alignItems: "center",
-    borderRadius: 14,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  streakRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: COLORS.textPrimary,
-    fontVariant: ["tabular-nums"],
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-    marginTop: 4,
   },
   sectionCard: {
     padding: 16,
@@ -513,27 +409,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginBottom: 8,
   },
-  matrixGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  matrixCell: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#0A0A0C",
-  },
-  matrixText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: COLORS.textMuted,
-    fontVariant: ["tabular-nums"],
-  },
   templateList: {
     gap: 8,
   },
@@ -542,7 +417,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 12,
     borderRadius: 12,
-    backgroundColor: "#0A0A0C",
+    backgroundColor: "#09090B",
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -579,9 +454,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 14,
+    gap: 8,
   },
   settingLabel: {
-    fontSize: 14,
+    flex: 1,
+    fontSize: 13,
     fontWeight: "600",
     color: COLORS.textPrimary,
   },
@@ -607,7 +484,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(0,0,0,0.68)",
+    backgroundColor: "rgba(0,0,0,0.72)",
     paddingVertical: 3,
     alignItems: "center",
   },
@@ -627,15 +504,31 @@ const styles = StyleSheet.create({
   },
   darkPill: {
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: "#0A0A0C",
+    backgroundColor: "#09090B",
   },
   darkPillText: {
     fontSize: 11,
     fontWeight: "700",
+    color: COLORS.textSecondary,
+  },
+  backupHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  totalSessionsChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 14,
+  },
+  totalSessionsText: {
+    fontSize: 12,
+    fontWeight: "800",
     color: COLORS.textSecondary,
   },
   backupRow: {
@@ -650,7 +543,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: "#0A0A0C",
+    backgroundColor: "#09090B",
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -658,75 +551,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: COLORS.textPrimary,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-    lineHeight: 19,
-  },
-  logItem: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  logRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 11,
-  },
-  logTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  logTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-  },
-  prMiniTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  prMiniText: {
-    fontSize: 9,
-    fontWeight: "800",
-  },
-  logDate: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  logRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  logBadge: {
-    fontSize: 12,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
-  },
-  logDetails: {
-    paddingBottom: 12,
-    gap: 6,
-  },
-  logExRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  logExName: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  logExDetail: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    fontVariant: ["tabular-nums"],
   },
 });

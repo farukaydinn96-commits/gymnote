@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Modal,
   View,
@@ -6,10 +6,11 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  Platform,
 } from "react-native";
-import { X } from "lucide-react-native";
-import { COLORS } from "../constants/theme";
+import { Copy, Check, X, Upload } from "lucide-react-native";
 import { Lang } from "../types/workout";
+import { COLORS } from "../constants/theme";
 import { STRINGS } from "../constants/i18n";
 
 interface Props {
@@ -17,7 +18,7 @@ interface Props {
   exportJson: string;
   accentHex: string;
   lang: Lang;
-  onImport: (rawJson: string) => void;
+  onImport: (raw: string) => void;
   onClose: () => void;
 }
 
@@ -29,58 +30,74 @@ export const BackupModal: React.FC<Props> = ({
   onImport,
   onClose,
 }) => {
-  const [text, setText] = useState("");
-  const t = STRINGS[lang];
-
-  useEffect(() => {
-    if (mode === "export") setText(exportJson);
-    if (mode === "import") setText("");
-  }, [mode, exportJson]);
+  const [importText, setImportText] = useState("");
+  const [copied, setCopied] = useState(false);
 
   if (!mode) return null;
+  const t = STRINGS[lang];
+  const isExport = mode === "export";
+
+  const handleCopy = async () => {
+    if (
+      Platform.OS === "web" &&
+      typeof navigator !== "undefined" &&
+      navigator.clipboard
+    ) {
+      await navigator.clipboard.writeText(exportJson);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
 
   return (
-    <Modal
-      visible={!!mode}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={styles.card}>
+        <View style={styles.sheet}>
           <View style={styles.header}>
             <Text style={styles.title}>
-              {mode === "export" ? t.backupModalExport : t.backupModalImport}
+              {isExport ? t.exportModalTitle : t.importModalTitle}
             </Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <X size={16} color={COLORS.textSecondary} />
+            <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
+              <X size={18} color={COLORS.textSecondary} />
             </TouchableOpacity>
           </View>
 
+          <Text style={styles.sub}>{isExport ? t.exportSub : t.importSub}</Text>
+
           <TextInput
-            value={text}
-            onChangeText={setText}
+            value={isExport ? exportJson : importText}
+            onChangeText={isExport ? undefined : setImportText}
+            editable={!isExport}
             multiline
-            editable={mode === "import"}
-            selectTextOnFocus={mode === "export"}
-            placeholder='{"days": [...], "logs": [...]}'
+            placeholder="{ ... }"
             placeholderTextColor={COLORS.textMuted}
-            style={styles.textArea}
+            style={styles.jsonBox}
           />
 
-          {mode === "import" ? (
+          {isExport ? (
             <TouchableOpacity
-              onPress={() => onImport(text)}
+              onPress={handleCopy}
               style={[styles.primaryBtn, { backgroundColor: accentHex }]}
             >
-              <Text style={styles.primaryBtnText}>{t.applyBackup}</Text>
+              {copied ? (
+                <Check size={16} color="#000000" />
+              ) : (
+                <Copy size={16} color="#000000" />
+              )}
+              <Text style={styles.primaryBtnText}>
+                {copied ? t.copied : t.copyJson}
+              </Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              onPress={onClose}
+              onPress={() => {
+                onImport(importText);
+                setImportText("");
+              }}
               style={[styles.primaryBtn, { backgroundColor: accentHex }]}
             >
-              <Text style={styles.primaryBtnText}>{t.close}</Text>
+              <Upload size={16} color="#000000" />
+              <Text style={styles.primaryBtnText}>{t.restoreBtn}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -93,19 +110,19 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.82)",
-    justifyContent: "center",
     alignItems: "center",
-    padding: 20,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 440,
-    backgroundColor: "#101014",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: COLORS.borderSpecular,
+    justifyContent: "center",
     padding: 18,
-    gap: 14,
+  },
+  sheet: {
+    width: "100%",
+    maxWidth: 460,
+    borderRadius: 18,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 18,
+    gap: 12,
   },
   header: {
     flexDirection: "row",
@@ -113,28 +130,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   title: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "800",
     color: COLORS.textPrimary,
   },
-  closeBtn: {
+  closeIcon: {
     padding: 4,
   },
-  textArea: {
-    height: 200,
+  sub: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+  jsonBox: {
+    height: 170,
     borderRadius: 12,
-    backgroundColor: "#08080A",
+    backgroundColor: "#070709",
     borderWidth: 1,
     borderColor: COLORS.border,
     padding: 12,
     color: COLORS.textPrimary,
-    fontSize: 12,
+    fontSize: 11,
     textAlignVertical: "top",
   },
   primaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
     paddingVertical: 13,
     borderRadius: 12,
-    alignItems: "center",
   },
   primaryBtnText: {
     fontSize: 14,

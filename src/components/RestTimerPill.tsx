@@ -7,30 +7,36 @@ import {
   Platform,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { Timer, Play, Pause, RotateCcw, X } from "lucide-react-native";
+import { Timer, X, RotateCcw } from "lucide-react-native";
 import { COLORS } from "../constants/theme";
 
 interface Props {
   accentHex: string;
-  isDesktop: boolean;
   label: string;
+  autoTrigger?: { seconds: number; nonce: number } | null;
 }
 
-const PRESETS = [60, 90, 120];
+const PRESETS = [60, 90, 120, 180];
 
 export const RestTimerPill: React.FC<Props> = ({
   accentHex,
-  isDesktop,
   label,
+  autoTrigger,
 }) => {
   const [expanded, setExpanded] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(90);
-  const [selectedPreset, setSelectedPreset] = useState(90);
+  const [secondsLeft, setSecondsLeft] = useState(0);
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
-    if (!running) return;
-    const interval = setInterval(() => {
+    if (autoTrigger && autoTrigger.nonce > 0 && autoTrigger.seconds > 0) {
+      setSecondsLeft(autoTrigger.seconds);
+      setRunning(true);
+    }
+  }, [autoTrigger]);
+
+  useEffect(() => {
+    if (!running || secondsLeft <= 0) return;
+    const id = setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           setRunning(false);
@@ -42,209 +48,120 @@ export const RestTimerPill: React.FC<Props> = ({
         return prev - 1;
       });
     }, 1000);
+    return () => clearInterval(id);
+  }, [running, secondsLeft]);
 
-    return () => clearInterval(interval);
-  }, [running]);
+  const startPreset = (sec: number) => {
+    if (Platform.OS !== "web")
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSecondsLeft(sec);
+    setRunning(true);
+    setExpanded(false);
+  };
 
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
-    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    return `${m}:${String(s).padStart(2, "0")}`;
   };
-
-  const selectPreset = (sec: number) => {
-    setSelectedPreset(sec);
-    setSecondsLeft(sec);
-    setRunning(true);
-  };
-
-  if (!expanded) {
-    return (
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => setExpanded(true)}
-        style={[
-          styles.collapsedPill,
-          isDesktop ? styles.posDesktop : styles.posMobile,
-          running && { borderColor: accentHex },
-        ]}
-      >
-        <Timer size={15} color={running ? accentHex : COLORS.textPrimary} />
-        <Text style={[styles.collapsedText, running && { color: accentHex }]}>
-          {running ? formatTime(secondsLeft) : label}
-        </Text>
-      </TouchableOpacity>
-    );
-  }
 
   return (
-    <View
-      style={[
-        styles.expandedCard,
-        isDesktop ? styles.posDesktop : styles.posMobile,
-      ]}
-    >
-      <View style={styles.topRow}>
-        <View style={styles.timerDisplay}>
-          <Timer size={16} color={accentHex} />
-          <Text
-            style={[styles.timeText, secondsLeft === 0 && { color: accentHex }]}
-          >
-            {formatTime(secondsLeft)}
-          </Text>
-        </View>
-
-        <View style={styles.controls}>
-          <TouchableOpacity
-            onPress={() => {
-              if (secondsLeft === 0) setSecondsLeft(selectedPreset);
-              setRunning((r) => !r);
-            }}
-            style={[styles.ctrlBtn, { backgroundColor: accentHex }]}
-          >
-            {running ? (
-              <Pause size={13} color="#000000" fill="#000000" />
-            ) : (
-              <Play size={13} color="#000000" fill="#000000" />
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => {
-              setRunning(false);
-              setSecondsLeft(selectedPreset);
-            }}
-            style={styles.iconBtn}
-          >
-            <RotateCcw size={13} color={COLORS.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setExpanded(false)}
-            style={styles.iconBtn}
-          >
-            <X size={14} color={COLORS.textSecondary} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.presetsRow}>
-        {PRESETS.map((sec) => {
-          const active = selectedPreset === sec;
-          return (
+    <View style={styles.wrapper}>
+      {expanded && (
+        <View style={styles.menu}>
+          {PRESETS.map((sec) => (
             <TouchableOpacity
               key={sec}
-              onPress={() => selectPreset(sec)}
-              style={[
-                styles.presetBtn,
-                active && {
-                  borderColor: accentHex,
-                  backgroundColor: "rgba(255,255,255,0.06)",
-                },
-              ]}
+              onPress={() => startPreset(sec)}
+              style={styles.presetBtn}
             >
-              <Text style={[styles.presetText, active && { color: accentHex }]}>
-                {sec}s
-              </Text>
+              <Text style={styles.presetText}>{sec}s</Text>
             </TouchableOpacity>
-          );
-        })}
-      </View>
+          ))}
+          {secondsLeft > 0 && (
+            <TouchableOpacity
+              onPress={() => {
+                setRunning(false);
+                setSecondsLeft(0);
+                setExpanded(false);
+              }}
+              style={styles.resetBtn}
+            >
+              <RotateCcw size={13} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setExpanded((p) => !p)}
+        style={[
+          styles.pill,
+          running && { borderColor: accentHex, backgroundColor: "#11130A" },
+        ]}
+      >
+        <Timer size={15} color={running ? accentHex : COLORS.textSecondary} />
+        <Text style={[styles.pillText, running && { color: accentHex }]}>
+          {secondsLeft > 0 ? formatTime(secondsLeft) : label}
+        </Text>
+        {expanded && <X size={13} color={COLORS.textSecondary} />}
+      </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  posMobile: {
+  wrapper: {
     position: "absolute",
-    right: 16,
-    bottom: 86,
-    zIndex: 50,
+    right: 18,
+    bottom: 88,
+    alignItems: "flex-end",
+    gap: 8,
   },
-  posDesktop: {
-    position: "absolute",
-    right: 28,
-    bottom: 28,
-    zIndex: 50,
+  menu: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    padding: 6,
+    borderRadius: 14,
+    backgroundColor: "#121216",
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  collapsedPill: {
+  presetBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 9,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  presetText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    fontVariant: ["tabular-nums"],
+  },
+  resetBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+  },
+  pill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: "#141417",
+    backgroundColor: "#121216",
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  collapsedText: {
+  pillText: {
     fontSize: 12,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    fontVariant: ["tabular-nums"],
-  },
-  expandedCard: {
-    width: 224,
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: "#121215",
-    borderWidth: 1,
-    borderColor: COLORS.borderSpecular,
-    gap: 10,
-  },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  timerDisplay: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-  },
-  timeText: {
-    fontSize: 18,
     fontWeight: "800",
     color: COLORS.textPrimary,
-    fontVariant: ["tabular-nums"],
-  },
-  controls: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  ctrlBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  presetsRow: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  presetBtn: {
-    flex: 1,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: "center",
-  },
-  presetText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: COLORS.textSecondary,
     fontVariant: ["tabular-nums"],
   },
 });

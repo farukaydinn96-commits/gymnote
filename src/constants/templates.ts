@@ -1,60 +1,117 @@
-import { DayPlan } from "../types/workout";
+import { DayPlan, Lang } from "../types/workout";
 
-const makeEx = (id: string, name: string, detail: string) => ({
-  id,
-  name,
-  detail,
-  completed: false,
-});
-
-export const SPLIT_TEMPLATES: {
+export interface SplitTemplate {
   id: string;
-  name: string;
-  sub: string;
+  name: Record<Lang, string>;
+  sub: Record<Lang, string>;
   days: DayPlan[];
-}[] = [
+}
+
+export const SPLIT_TEMPLATES: SplitTemplate[] = [
   {
     id: "ppl",
-    name: "Push / Pull / Legs",
-    sub: "Haftada 6 gün klasik hacim düzeni",
+    name: {
+      tr: "Push / Pull / Legs",
+      en: "Push / Pull / Legs",
+    },
+    sub: {
+      tr: "Haftada 6 gün klasik hacim düzeni",
+      en: "6-day classic high-volume split",
+    },
     days: [
       {
         id: "mon",
         shortLabel: "MON",
         fullLabel: "PAZARTESİ",
-        title: "Push (Göğüs & Omuz)",
+        title: "Push A",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("p1", "Incline Dumbbell Press", "4x8"),
-          makeEx("p2", "Flat Bench Press", "3x8"),
-          makeEx("p3", "Lateral Raise", "4x15"),
-          makeEx("p4", "Triceps Pushdown", "3x12"),
+          {
+            id: "ppl_1",
+            name: "Incline Dumbbell Press",
+            detail: "4x8",
+            completed: false,
+          },
+          {
+            id: "ppl_2",
+            name: "Flat Barbell Bench Press",
+            detail: "3x8",
+            completed: false,
+          },
+          {
+            id: "ppl_3",
+            name: "Lateral Raise",
+            detail: "4x15",
+            completed: false,
+          },
+          {
+            id: "ppl_4",
+            name: "Cable Triceps Pushdown",
+            detail: "3x12",
+            completed: false,
+          },
         ],
       },
       {
         id: "tue",
         shortLabel: "TUE",
         fullLabel: "SALI",
-        title: "Pull (Sırt & Biceps)",
+        title: "Pull A",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("p5", "Lat Pulldown", "4x10"),
-          makeEx("p6", "Barbell Row", "4x8"),
-          makeEx("p7", "Face Pull", "3x15"),
-          makeEx("p8", "Barbell Curl", "3x10"),
+          {
+            id: "ppl_5",
+            name: "Lat Pulldown",
+            detail: "4x10",
+            completed: false,
+          },
+          { id: "ppl_6", name: "Barbell Row", detail: "4x8", completed: false },
+          { id: "ppl_7", name: "Face Pull", detail: "3x15", completed: false },
+          {
+            id: "ppl_8",
+            name: "Barbell Curl",
+            detail: "3x10",
+            completed: false,
+          },
         ],
       },
       {
         id: "wed",
         shortLabel: "WED",
         fullLabel: "ÇARŞAMBA",
-        title: "Legs (Bacak)",
+        title: "Legs A",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("p9", "Barbell Squat", "4x6"),
-          makeEx("p10", "Romanian Deadlift", "3x10"),
-          makeEx("p11", "Leg Extension", "3x12"),
-          makeEx("p12", "Calf Raise", "4x15"),
+          {
+            id: "ppl_9",
+            name: "Barbell Squat",
+            detail: "4x6",
+            completed: false,
+          },
+          {
+            id: "ppl_10",
+            name: "Romanian Deadlift",
+            detail: "3x10",
+            completed: false,
+          },
+          {
+            id: "ppl_11",
+            name: "Leg Extension",
+            detail: "3x12",
+            completed: false,
+          },
+          {
+            id: "ppl_12",
+            name: "Standing Calf Raise",
+            detail: "4x15",
+            completed: false,
+          },
         ],
       },
       {
@@ -63,10 +120,33 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "PERŞEMBE",
         title: "Push B",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("p13", "Overhead Press", "4x8"),
-          makeEx("p14", "Cable Fly", "3x12"),
-          makeEx("p15", "Overhead Triceps Ext", "3x12"),
+          {
+            id: "ppl_13",
+            name: "Overhead Press",
+            detail: "4x8",
+            completed: false,
+          },
+          {
+            id: "ppl_14",
+            name: "Dumbbell Fly",
+            detail: "3x12",
+            completed: false,
+          },
+          {
+            id: "ppl_15",
+            name: "Cable Lateral Raise",
+            detail: "4x15",
+            completed: false,
+          },
+          {
+            id: "ppl_16",
+            name: "Overhead Triceps Extension",
+            detail: "3x12",
+            completed: false,
+          },
         ],
       },
       {
@@ -75,10 +155,33 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "CUMA",
         title: "Pull B",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("p16", "Pull-Ups", "3xMax"),
-          makeEx("p17", "Seated Cable Row", "4x10"),
-          makeEx("p18", "Hammer Curl", "3x12"),
+          {
+            id: "ppl_17",
+            name: "Pull-Up / Assisted Pull-Up",
+            detail: "4x8",
+            completed: false,
+          },
+          {
+            id: "ppl_18",
+            name: "Seated Cable Row",
+            detail: "4x10",
+            completed: false,
+          },
+          {
+            id: "ppl_19",
+            name: "Rear Delt Fly",
+            detail: "3x15",
+            completed: false,
+          },
+          {
+            id: "ppl_20",
+            name: "Hammer Curl",
+            detail: "3x12",
+            completed: false,
+          },
         ],
       },
       {
@@ -87,10 +190,28 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "CUMARTESİ",
         title: "Legs B",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("p19", "Leg Press", "4x10"),
-          makeEx("p20", "Leg Curl", "3x12"),
-          makeEx("p21", "Bulgarian Split Squat", "3x10"),
+          { id: "ppl_21", name: "Leg Press", detail: "4x10", completed: false },
+          {
+            id: "ppl_22",
+            name: "Lying Leg Curl",
+            detail: "4x12",
+            completed: false,
+          },
+          {
+            id: "ppl_23",
+            name: "Bulgarian Split Squat",
+            detail: "3x10",
+            completed: false,
+          },
+          {
+            id: "ppl_24",
+            name: "Seated Calf Raise",
+            detail: "4x15",
+            completed: false,
+          },
         ],
       },
       {
@@ -99,14 +220,22 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "PAZAR",
         title: "Rest Day",
         isRestDay: true,
+        shift: "none",
+        shiftHours: "",
         exercises: [],
       },
     ],
   },
   {
-    id: "upper-lower",
-    name: "Upper / Lower",
-    sub: "Haftada 4 gün dengeli güç & hipertrofi",
+    id: "ul",
+    name: {
+      tr: "Upper / Lower",
+      en: "Upper / Lower",
+    },
+    sub: {
+      tr: "Haftada 4 gün dengeli güç & hipertrofi",
+      en: "4-day balanced strength & hypertrophy",
+    },
     days: [
       {
         id: "mon",
@@ -114,12 +243,34 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "PAZARTESİ",
         title: "Upper A",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("u1", "Bench Press", "4x6"),
-          makeEx("u2", "Barbell Row", "4x8"),
-          makeEx("u3", "Overhead Press", "3x10"),
-          makeEx("u4", "Lat Pulldown", "3x10"),
-          makeEx("u5", "Hammer Curl", "3x12"),
+          {
+            id: "ul_1",
+            name: "Barbell Bench Press",
+            detail: "4x6",
+            completed: false,
+          },
+          { id: "ul_2", name: "Barbell Row", detail: "4x8", completed: false },
+          {
+            id: "ul_3",
+            name: "Overhead Press",
+            detail: "3x8",
+            completed: false,
+          },
+          {
+            id: "ul_4",
+            name: "Lat Pulldown",
+            detail: "3x10",
+            completed: false,
+          },
+          {
+            id: "ul_5",
+            name: "Lateral Raise",
+            detail: "4x15",
+            completed: false,
+          },
         ],
       },
       {
@@ -128,11 +279,28 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "SALI",
         title: "Lower A",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("u6", "Barbell Squat", "4x6"),
-          makeEx("u7", "Romanian Deadlift", "3x8"),
-          makeEx("u8", "Leg Press", "3x12"),
-          makeEx("u9", "Calf Raise", "4x15"),
+          {
+            id: "ul_6",
+            name: "Barbell Squat",
+            detail: "4x6",
+            completed: false,
+          },
+          {
+            id: "ul_7",
+            name: "Romanian Deadlift",
+            detail: "3x8",
+            completed: false,
+          },
+          { id: "ul_8", name: "Leg Press", detail: "3x12", completed: false },
+          {
+            id: "ul_9",
+            name: "Standing Calf Raise",
+            detail: "4x15",
+            completed: false,
+          },
         ],
       },
       {
@@ -141,6 +309,8 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "ÇARŞAMBA",
         title: "Rest Day",
         isRestDay: true,
+        shift: "none",
+        shiftHours: "",
         exercises: [],
       },
       {
@@ -149,11 +319,39 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "PERŞEMBE",
         title: "Upper B",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("u10", "Incline Dumbbell Press", "4x8"),
-          makeEx("u11", "Seated Cable Row", "4x10"),
-          makeEx("u12", "Lateral Raise", "4x15"),
-          makeEx("u13", "Triceps Pushdown", "3x12"),
+          {
+            id: "ul_10",
+            name: "Incline Dumbbell Press",
+            detail: "4x10",
+            completed: false,
+          },
+          {
+            id: "ul_11",
+            name: "Seated Cable Row",
+            detail: "4x10",
+            completed: false,
+          },
+          {
+            id: "ul_12",
+            name: "Cable Lateral Raise",
+            detail: "4x15",
+            completed: false,
+          },
+          {
+            id: "ul_13",
+            name: "Barbell Curl",
+            detail: "3x12",
+            completed: false,
+          },
+          {
+            id: "ul_14",
+            name: "Triceps Pushdown",
+            detail: "3x12",
+            completed: false,
+          },
         ],
       },
       {
@@ -162,10 +360,33 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "CUMA",
         title: "Lower B",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("u14", "Deadlift", "3x5"),
-          makeEx("u15", "Bulgarian Split Squat", "3x10"),
-          makeEx("u16", "Leg Curl", "3x12"),
+          {
+            id: "ul_15",
+            name: "Bulgarian Split Squat",
+            detail: "3x10",
+            completed: false,
+          },
+          {
+            id: "ul_16",
+            name: "Lying Leg Curl",
+            detail: "4x12",
+            completed: false,
+          },
+          {
+            id: "ul_17",
+            name: "Leg Extension",
+            detail: "3x15",
+            completed: false,
+          },
+          {
+            id: "ul_18",
+            name: "Hanging Leg Raise",
+            detail: "4x12",
+            completed: false,
+          },
         ],
       },
       {
@@ -174,6 +395,8 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "CUMARTESİ",
         title: "Rest Day",
         isRestDay: true,
+        shift: "none",
+        shiftHours: "",
         exercises: [],
       },
       {
@@ -182,14 +405,22 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "PAZAR",
         title: "Rest Day",
         isRestDay: true,
+        shift: "none",
+        shiftHours: "",
         exercises: [],
       },
     ],
   },
   {
-    id: "full-body",
-    name: "Full Body (3 Gün)",
-    sub: "Pazartesi - Çarşamba - Cuma minimal program",
+    id: "fullbody",
+    name: {
+      tr: "Full Body (3 Gün)",
+      en: "Full Body (3 Days)",
+    },
+    sub: {
+      tr: "Pazartesi - Çarşamba - Cuma minimal program",
+      en: "Mon - Wed - Fri minimalist routine",
+    },
     days: [
       {
         id: "mon",
@@ -197,11 +428,23 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "PAZARTESİ",
         title: "Full Body A",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("f1", "Barbell Squat", "3x8"),
-          makeEx("f2", "Bench Press", "3x8"),
-          makeEx("f3", "Barbell Row", "3x10"),
-          makeEx("f4", "Lateral Raise", "3x15"),
+          {
+            id: "fb_1",
+            name: "Barbell Squat",
+            detail: "3x8",
+            completed: false,
+          },
+          { id: "fb_2", name: "Bench Press", detail: "3x8", completed: false },
+          { id: "fb_3", name: "Barbell Row", detail: "3x10", completed: false },
+          {
+            id: "fb_4",
+            name: "Lateral Raise",
+            detail: "3x15",
+            completed: false,
+          },
         ],
       },
       {
@@ -210,6 +453,8 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "SALI",
         title: "Rest Day",
         isRestDay: true,
+        shift: "none",
+        shiftHours: "",
         exercises: [],
       },
       {
@@ -218,11 +463,33 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "ÇARŞAMBA",
         title: "Full Body B",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("f5", "Romanian Deadlift", "3x8"),
-          makeEx("f6", "Overhead Press", "3x8"),
-          makeEx("f7", "Lat Pulldown", "3x10"),
-          makeEx("f8", "Barbell Curl", "3x12"),
+          {
+            id: "fb_5",
+            name: "Romanian Deadlift",
+            detail: "3x8",
+            completed: false,
+          },
+          {
+            id: "fb_6",
+            name: "Overhead Press",
+            detail: "3x8",
+            completed: false,
+          },
+          {
+            id: "fb_7",
+            name: "Lat Pulldown",
+            detail: "3x10",
+            completed: false,
+          },
+          {
+            id: "fb_8",
+            name: "Barbell Curl",
+            detail: "3x12",
+            completed: false,
+          },
         ],
       },
       {
@@ -231,6 +498,8 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "PERŞEMBE",
         title: "Rest Day",
         isRestDay: true,
+        shift: "none",
+        shiftHours: "",
         exercises: [],
       },
       {
@@ -239,11 +508,28 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "CUMA",
         title: "Full Body C",
         isRestDay: false,
+        shift: "none",
+        shiftHours: "",
         exercises: [
-          makeEx("f9", "Leg Press", "3x10"),
-          makeEx("f10", "Incline Dumbbell Press", "3x10"),
-          makeEx("f11", "Seated Cable Row", "3x10"),
-          makeEx("f12", "Triceps Pushdown", "3x12"),
+          { id: "fb_9", name: "Leg Press", detail: "3x10", completed: false },
+          {
+            id: "fb_10",
+            name: "Incline Dumbbell Press",
+            detail: "3x10",
+            completed: false,
+          },
+          {
+            id: "fb_11",
+            name: "Seated Cable Row",
+            detail: "3x10",
+            completed: false,
+          },
+          {
+            id: "fb_12",
+            name: "Triceps Pushdown",
+            detail: "3x12",
+            completed: false,
+          },
         ],
       },
       {
@@ -252,6 +538,8 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "CUMARTESİ",
         title: "Rest Day",
         isRestDay: true,
+        shift: "none",
+        shiftHours: "",
         exercises: [],
       },
       {
@@ -260,6 +548,8 @@ export const SPLIT_TEMPLATES: {
         fullLabel: "PAZAR",
         title: "Rest Day",
         isRestDay: true,
+        shift: "none",
+        shiftHours: "",
         exercises: [],
       },
     ],

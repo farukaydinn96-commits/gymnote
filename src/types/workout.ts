@@ -1,18 +1,26 @@
 export type DayId = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
-
-export type AccentKey = "acid" | "crimson" | "ice" | "amber" | "cobalt";
-
 export type ShiftType = "none" | "morning" | "evening" | "night" | "off";
-
+export type AccentKey = "lime" | "crimson" | "white" | "amber" | "blue";
 export type Lang = "tr" | "en";
+export type TabKey = "program" | "progress" | "profile";
+
+export interface SetEntry {
+  id: string;
+  reps: string;
+  weight: string;
+  completed: boolean;
+  prevReps?: string;
+  prevWeight?: string;
+}
 
 export interface Exercise {
   id: string;
   name: string;
   detail: string;
   lastDetail?: string;
-  isPR?: boolean;
   completed: boolean;
+  isPR?: boolean;
+  sets?: SetEntry[];
 }
 
 export interface DayPlan {
@@ -21,14 +29,15 @@ export interface DayPlan {
   fullLabel: string;
   title: string;
   isRestDay: boolean;
-  shift?: ShiftType;
-  shiftHours?: string;
+  shift: ShiftType;
+  shiftHours: string;
   exercises: Exercise[];
 }
 
 export interface WorkoutLog {
   id: string;
   dateISO: string;
+  dayId?: DayId;
   dayTitle: string;
   completedCount: number;
   totalCount: number;
@@ -38,10 +47,13 @@ export interface WorkoutLog {
 
 export interface AppSettings {
   accent: AccentKey;
-  quote: string;
+  oledMode: boolean;
   presetBgId: string;
   bgOpacity: number;
-  oledMode: boolean;
-  bodyWeight?: string;
+  quote: string;
   lang: Lang;
+  bodyWeight: string;
+  userName?: string;
+  userGoal?: string;
+  autoRestSec?: number;
 }

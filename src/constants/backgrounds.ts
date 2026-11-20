@@ -1,9 +1,9 @@
 import { ImageSourcePropType } from "react-native";
-import { AppSettings } from "../types/workout";
+import { AppSettings, Lang } from "../types/workout";
 
 export interface BgPreset {
   id: string;
-  label: string;
+  label: Record<Lang, string>;
   defaultQuote: string;
   source: ImageSourcePropType;
 }
@@ -11,25 +11,25 @@ export interface BgPreset {
 export const BG_PRESETS: BgPreset[] = [
   {
     id: "chalk",
-    label: "Magnezyum",
+    label: { tr: "Magnezyum", en: "Chalk" },
     defaultQuote: "calm mind. heavy iron.",
     source: require("../../assets/bg/bg-chalk.jpg"),
   },
   {
     id: "rain",
-    label: "04:00 AM",
+    label: { tr: "04:00 AM", en: "04:00 AM" },
     defaultQuote: "nobody cares. work harder.",
     source: require("../../assets/bg/bg-rain.jpg"),
   },
   {
     id: "focus",
-    label: "Odak",
+    label: { tr: "Odak", en: "Focus" },
     defaultQuote: "what discipline actually looks like.",
     source: require("../../assets/bg/bg-focus.jpg"),
   },
   {
     id: "grit",
-    label: "Azim",
+    label: { tr: "Azim", en: "Grit" },
     defaultQuote: "earn your rest.",
     source: require("../../assets/bg/bg-grit.jpg"),
   },
