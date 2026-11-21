@@ -1,4 +1,4 @@
-import { DayId, Lang, ShiftType } from "../types/workout";
+import { DayId, Lang, MuscleGroup, ShiftType } from "../types/workout";
 
 export const DAY_NAMES: Record<
   Lang,
@@ -46,6 +46,33 @@ export const SHIFT_NAMES: Record<Lang, Record<ShiftType, string>> = {
   },
 };
 
+export const MUSCLE_LABELS: Record<Lang, Record<MuscleGroup, string>> = {
+  tr: {
+    chest: "Göğüs",
+    back: "Sırt",
+    shoulders: "Omuz",
+    biceps: "Biceps",
+    triceps: "Triceps",
+    quads: "Ön Bacak",
+    hamstrings: "Arka Bacak",
+    glutes: "Kalça",
+    calves: "Kalf",
+    core: "Karın",
+  },
+  en: {
+    chest: "Chest",
+    back: "Back",
+    shoulders: "Shoulders",
+    biceps: "Biceps",
+    triceps: "Triceps",
+    quads: "Quads",
+    hamstrings: "Hamstrings",
+    glutes: "Glutes",
+    calves: "Calves",
+    core: "Core",
+  },
+};
+
 export const STRINGS: Record<Lang, Record<string, string>> = {
   tr: {
     tabProgram: "Antrenman",
@@ -70,11 +97,24 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     copyDayLabel: "Bu günü şuraya kopyala:",
     prevPrefix: "Önceki:",
     setsDone: "set",
-    addSet: "+ Set Ekle",
-    removeSet: "- Set Sil",
+    addSet: "+ Set",
+    removeSet: "- Set",
     kgLabel: "KG",
     repsLabel: "TEKRAR",
-    progressTitle: "İlerleme & Takvim",
+    setTypeHint:
+      "Set tipini değiştirmek için numaraya dokun: N (Normal) · W (Isınma) · D (Drop) · F (Tükeniş)",
+    autoPrTag: "OTOMATİK PR",
+    est1RmLabel: "1RM",
+    liveSessionLabel: "AKTİF SEANS",
+    volumeLabel: "TONAJ",
+    durationLabel: "SÜRE",
+    minShort: "dk",
+    muscleMapTitle: "HAFTALIK KAS YOĞUNLUĞU HARİTASI",
+    frontView: "ÖN",
+    backView: "ARKA",
+    strengthChartTitle: "TAHMİNİ 1RM GELİŞİM GRAFİĞİ",
+    chartEmptyHint: "Grafik için ağırlıklı en az 1 antrenman kaydet.",
+    progressTitle: "İlerleme & Analiz",
     profileTitle: "Profil & Ayarlar",
     athleteNamePlaceholder: "İsminiz",
     athleteGoalPlaceholder: "Hedef (ör: Hipertrofi & Güç)",
@@ -145,11 +185,24 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     copyDayLabel: "Copy this day to:",
     prevPrefix: "Prev:",
     setsDone: "sets",
-    addSet: "+ Add Set",
-    removeSet: "- Remove Set",
+    addSet: "+ Set",
+    removeSet: "- Set",
     kgLabel: "KG",
     repsLabel: "REPS",
-    progressTitle: "Progress & Calendar",
+    setTypeHint:
+      "Tap set badge to cycle: N (Working) · W (Warm-up) · D (Drop) · F (Failure)",
+    autoPrTag: "AUTO PR",
+    est1RmLabel: "1RM",
+    liveSessionLabel: "LIVE SESSION",
+    volumeLabel: "VOLUME",
+    durationLabel: "DURATION",
+    minShort: "min",
+    muscleMapTitle: "WEEKLY MUSCLE HEATMAP",
+    frontView: "FRONT",
+    backView: "BACK",
+    strengthChartTitle: "ESTIMATED 1RM PROGRESSION",
+    chartEmptyHint: "Log at least 1 weighted session to unlock strength chart.",
+    progressTitle: "Progress & Analytics",
     profileTitle: "Profile & Settings",
     athleteNamePlaceholder: "Your Name",
     athleteGoalPlaceholder: "Goal (e.g. Strength & Hypertrophy)",

@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-} from 'react-native';
-import { ChevronDown, ChevronUp, Flame, Trophy } from 'lucide-react-native';
-import { Lang, WorkoutLog } from '../types/workout';
-import { COLORS } from '../constants/theme';
-import { STRINGS, WEEKDAY_HEADERS } from '../constants/i18n';
-import { getLocalISODate, getMondayOfCurrentWeekISO } from '../utils/date';
+} from "react-native";
+import { ChevronDown, ChevronUp, Flame, Trophy } from "lucide-react-native";
+import { Lang, WorkoutLog } from "../types/workout";
+import { COLORS } from "../constants/theme";
+import { STRINGS, WEEKDAY_HEADERS } from "../constants/i18n";
+import { getLocalISODate, getMondayOfCurrentWeekISO } from "../utils/date";
+import { calcWeeklyMuscleSets } from "../utils/analytics";
+import { MuscleMapCard } from "../components/MuscleMapCard";
+import { StrengthChartCard } from "../components/StrengthChartCard";
 
 interface Props {
   logs: WorkoutLog[];
@@ -28,19 +31,26 @@ export const ProgressScreen: React.FC<Props> = ({ logs, accentHex, lang }) => {
   const todayISO = getLocalISODate(now);
   const mondayISO = getMondayOfCurrentWeekISO(now);
 
+  const weeklyMuscleSets = useMemo(
+    () => calcWeeklyMuscleSets(logs, mondayISO),
+    [logs, mondayISO],
+  );
+
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayJs = new Date(year, month, 1).getDay(); // 0=Paz, 1=Pzt...
+  const firstDayJs = new Date(year, month, 1).getDay();
   const leadingEmptyCount = firstDayJs === 0 ? 6 : firstDayJs - 1;
 
   const loggedDates = new Set(logs.map((l) => l.dateISO));
-  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}`;
 
   const thisMonthCount = new Set(
-    logs.filter((l) => l.dateISO.startsWith(monthPrefix)).map((l) => l.dateISO)
+    logs.filter((l) => l.dateISO.startsWith(monthPrefix)).map((l) => l.dateISO),
   ).size;
 
   const thisWeekCount = new Set(
-    logs.filter((l) => l.dateISO >= mondayISO && l.dateISO <= todayISO).map((l) => l.dateISO)
+    logs
+      .filter((l) => l.dateISO >= mondayISO && l.dateISO <= todayISO)
+      .map((l) => l.dateISO),
   ).size;
 
   let streak = 0;
@@ -57,12 +67,13 @@ export const ProgressScreen: React.FC<Props> = ({ logs, accentHex, lang }) => {
     }
   }
 
-  const calendarCells: Array<{ key: string; dayNum?: number; iso?: string }> = [];
+  const calendarCells: Array<{ key: string; dayNum?: number; iso?: string }> =
+    [];
   for (let i = 0; i < leadingEmptyCount; i++) {
     calendarCells.push({ key: `empty_${i}` });
   }
   for (let d = 1; d <= daysInMonth; d++) {
-    const iso = `${monthPrefix}-${String(d).padStart(2, '0')}`;
+    const iso = `${monthPrefix}-${String(d).padStart(2, "0")}`;
     calendarCells.push({ key: iso, dayNum: d, iso });
   }
   while (calendarCells.length % 7 !== 0) {
@@ -79,7 +90,9 @@ export const ProgressScreen: React.FC<Props> = ({ logs, accentHex, lang }) => {
 
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: accentHex }]}>{thisWeekCount}</Text>
+          <Text style={[styles.statValue, { color: accentHex }]}>
+            {thisWeekCount}
+          </Text>
           <Text style={styles.statLabel}>{t.thisWeek}</Text>
         </View>
         <View style={styles.statCard}>
@@ -88,14 +101,27 @@ export const ProgressScreen: React.FC<Props> = ({ logs, accentHex, lang }) => {
         </View>
         <View style={styles.statCard}>
           <View style={styles.streakRow}>
-            <Flame size={16} color={streak > 0 ? accentHex : COLORS.textMuted} />
+            <Flame
+              size={16}
+              color={streak > 0 ? accentHex : COLORS.textMuted}
+            />
             <Text style={styles.statValue}>{streak}</Text>
           </View>
           <Text style={styles.statLabel}>{t.dayStreak}</Text>
         </View>
       </View>
 
-      {/* 7 Sütunlu Gerçek Aylık Takvim */}
+      {/* 2D Anatomik Kas Yoğunluğu Haritası */}
+      <MuscleMapCard
+        weeklySets={weeklyMuscleSets}
+        accentHex={accentHex}
+        lang={lang}
+      />
+
+      {/* Tahmini 1RM Gelişim Çizgi Grafiği */}
+      <StrengthChartCard logs={logs} accentHex={accentHex} lang={lang} />
+
+      {/* 7 Sütunlu Aylık Takvim */}
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>{t.monthlyMatrix}</Text>
 
@@ -120,15 +146,22 @@ export const ProgressScreen: React.FC<Props> = ({ logs, accentHex, lang }) => {
                 <View
                   style={[
                     styles.matrixCell,
-                    active && { backgroundColor: accentHex, borderColor: accentHex },
+                    active && {
+                      backgroundColor: accentHex,
+                      borderColor: accentHex,
+                    },
                     isToday && !active && { borderColor: COLORS.textPrimary },
                   ]}
                 >
                   <Text
                     style={[
                       styles.matrixText,
-                      active && { color: '#000000', fontWeight: '800' },
-                      isToday && !active && { color: COLORS.textPrimary, fontWeight: '800' },
+                      active && { color: "#000000", fontWeight: "800" },
+                      isToday &&
+                        !active && {
+                          color: COLORS.textPrimary,
+                          fontWeight: "800",
+                        },
                     ]}
                   >
                     {cell.dayNum}
@@ -159,15 +192,25 @@ export const ProgressScreen: React.FC<Props> = ({ logs, accentHex, lang }) => {
                     <View style={styles.logTitleRow}>
                       <Text style={styles.logTitle}>{log.dayTitle}</Text>
                       {(log.prCount || 0) > 0 && (
-                        <View style={[styles.prMiniTag, { borderColor: accentHex }]}>
+                        <View
+                          style={[styles.prMiniTag, { borderColor: accentHex }]}
+                        >
                           <Trophy size={10} color={accentHex} />
-                          <Text style={[styles.prMiniText, { color: accentHex }]}>
+                          <Text
+                            style={[styles.prMiniText, { color: accentHex }]}
+                          >
                             {log.prCount} PR
                           </Text>
                         </View>
                       )}
                     </View>
-                    <Text style={styles.logDate}>{log.dateISO}</Text>
+                    <Text style={styles.logDate}>
+                      {log.dateISO}
+                      {log.totalVolumeKg ? ` · ${log.totalVolumeKg} kg` : ""}
+                      {log.durationMin
+                        ? ` · ${log.durationMin} ${t.minShort}`
+                        : ""}
+                    </Text>
                   </View>
                   <View style={styles.logRight}>
                     <Text style={[styles.logBadge, { color: accentHex }]}>
@@ -191,11 +234,13 @@ export const ProgressScreen: React.FC<Props> = ({ logs, accentHex, lang }) => {
                             !ex.completed && { color: COLORS.textMuted },
                           ]}
                         >
-                          {ex.completed ? '✓ ' : '• '}
+                          {ex.completed ? "✓ " : "• "}
                           {ex.name}
-                          {ex.isPR ? ' 🏆' : ''}
+                          {ex.isPR ? " 🏆" : ""}
                         </Text>
-                        <Text style={styles.logExDetail}>{ex.detail || '-'}</Text>
+                        <Text style={styles.logExDetail}>
+                          {ex.detail || "-"}
+                        </Text>
                       </View>
                     ))}
                   </View>
@@ -218,39 +263,39 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: "800",
     color: COLORS.textPrimary,
     letterSpacing: -0.5,
     marginBottom: 16,
   },
   statsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     marginBottom: 16,
   },
   statCard: {
     flex: 1,
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 14,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   streakRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   statValue: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: "800",
     color: COLORS.textPrimary,
-    fontVariant: ['tabular-nums'],
+    fontVariant: ["tabular-nums"],
   },
   statLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.textSecondary,
     marginTop: 4,
   },
@@ -264,47 +309,47 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 1.2,
     color: COLORS.textSecondary,
     marginBottom: 14,
   },
   weekdayRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 8,
   },
   weekdayLabel: {
-    width: '14.2857%',
-    textAlign: 'center',
+    width: "14.2857%",
+    textAlign: "center",
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: "800",
     color: COLORS.textMuted,
   },
   calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
   cellWrap: {
-    width: '14.2857%',
+    width: "14.2857%",
     padding: 3,
-    alignItems: 'center',
+    alignItems: "center",
   },
   matrixCell: {
-    width: '100%',
+    width: "100%",
     aspectRatio: 1,
     maxWidth: 42,
     borderRadius: 9,
     borderWidth: 1,
     borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#09090C',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#09090C",
   },
   matrixText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.textSecondary,
-    fontVariant: ['tabular-nums'],
+    fontVariant: ["tabular-nums"],
   },
   emptyText: {
     fontSize: 13,
@@ -315,24 +360,24 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   logRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 12,
   },
   logTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   logTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     color: COLORS.textPrimary,
   },
   prMiniTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 3,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -341,30 +386,31 @@ const styles = StyleSheet.create({
   },
   prMiniText: {
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   logDate: {
     fontSize: 11,
     color: COLORS.textSecondary,
     marginTop: 2,
+    fontVariant: ["tabular-nums"],
   },
   logRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   logBadge: {
     fontSize: 12,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
   },
   logDetails: {
     paddingBottom: 12,
     gap: 6,
   },
   logExRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   logExName: {
     fontSize: 12,
@@ -373,6 +419,6 @@ const styles = StyleSheet.create({
   logExDetail: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    fontVariant: ['tabular-nums'],
+    fontVariant: ["tabular-nums"],
   },
 });

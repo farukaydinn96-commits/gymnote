@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -29,6 +29,10 @@ import { BgPreset, resolveBackgroundSource } from "./src/constants/backgrounds";
 import { DAY_NAMES, STRINGS } from "./src/constants/i18n";
 import { getLocalISODate, getTodayDayId } from "./src/utils/date";
 import { ensureExerciseSets, parseDetailToSets } from "./src/utils/sets";
+import {
+  calcExercisesVolumeKg,
+  getHistoricalBest1RMMap,
+} from "./src/utils/analytics";
 import { ProgramScreen } from "./src/screens/ProgramScreen";
 import { ProgressScreen } from "./src/screens/ProgressScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
@@ -77,6 +81,7 @@ export default function App() {
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [selectedDayId, setSelectedDayId] = useState<DayId>(todayDayId);
+  const [sessionStartMs, setSessionStartMs] = useState<number | null>(null);
   const [summaryLog, setSummaryLog] = useState<WorkoutLog | null>(null);
   const [backupMode, setBackupMode] = useState<"export" | "import" | null>(
     null,
@@ -144,6 +149,11 @@ export default function App() {
   const t = STRINGS[lang];
   const accentHex = ACCENTS[settings.accent]?.hex || ACCENTS.lime.hex;
 
+  const historicalBestMap = useMemo(
+    () => getHistoricalBest1RMMap(logs, todayISO),
+    [logs, todayISO],
+  );
+
   const isLoggedToday = logs.some(
     (l) => l.dateISO === todayISO && (!l.dayId || l.dayId === selectedDayId),
   );
@@ -175,6 +185,14 @@ export default function App() {
     exId: string,
     patch: Partial<Exercise>,
   ) => {
+    if (
+      !sessionStartMs &&
+      (patch.completed === true ||
+        (patch.sets && patch.sets.some((s) => s.completed)))
+    ) {
+      setSessionStartMs(Date.now());
+    }
+
     setDays((prev) =>
       prev.map((d) =>
         d.id === dayId
@@ -278,6 +296,10 @@ export default function App() {
     const completedCount = day.exercises.filter(
       (e) => e.completed || (e.sets && e.sets.some((s) => s.completed)),
     ).length;
+    const totalVolumeKg = calcExercisesVolumeKg(day.exercises);
+    const durationMin = sessionStartMs
+      ? Math.max(1, Math.round((Date.now() - sessionStartMs) / 60000))
+      : undefined;
 
     const newLog: WorkoutLog = {
       id: Date.now().toString(),
@@ -287,6 +309,8 @@ export default function App() {
       completedCount,
       totalCount: day.exercises.length,
       prCount,
+      totalVolumeKg,
+      durationMin,
       exercises: day.exercises,
     };
 
@@ -304,11 +328,13 @@ export default function App() {
       return [newLog, ...prev];
     });
 
+    setSessionStartMs(null);
     setSummaryLog(newLog);
   };
 
   const handleResetWeek = () => {
     const runReset = () => {
+      setSessionStartMs(null);
       setDays((prev) =>
         prev.map((d) => ({
           ...d,
@@ -441,6 +467,8 @@ export default function App() {
               selectedDayId={selectedDayId}
               todayDayId={todayDayId}
               isLoggedToday={isLoggedToday}
+              historicalBestMap={historicalBestMap}
+              sessionStartMs={sessionStartMs}
               settings={settings}
               accentHex={accentHex}
               onSelectDay={setSelectedDayId}

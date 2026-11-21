@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Briefcase,
   CheckCircle2,
   Copy,
+  Flame,
   Moon,
   Plus,
   RotateCcw,
@@ -29,6 +30,7 @@ import { COLORS } from "../constants/theme";
 import { DAY_NAMES, SHIFT_NAMES, STRINGS } from "../constants/i18n";
 import { SPLIT_TEMPLATES } from "../constants/templates";
 import { resolveBackgroundSource } from "../constants/backgrounds";
+import { calcExercisesVolumeKg, normalizeExName } from "../utils/analytics";
 import { MotivationCard } from "../components/MotivationCard";
 import { DayStrip } from "../components/DayStrip";
 import { ExerciseRow } from "../components/ExerciseRow";
@@ -38,6 +40,8 @@ interface Props {
   selectedDayId: DayId;
   todayDayId: DayId;
   isLoggedToday: boolean;
+  historicalBestMap: Record<string, number>;
+  sessionStartMs: number | null;
   settings: AppSettings;
   accentHex: string;
   onSelectDay: (id: DayId) => void;
@@ -65,6 +69,8 @@ export const ProgramScreen: React.FC<Props> = ({
   selectedDayId,
   todayDayId,
   isLoggedToday,
+  historicalBestMap,
+  sessionStartMs,
   settings,
   accentHex,
   onSelectDay,
@@ -84,6 +90,21 @@ export const ProgramScreen: React.FC<Props> = ({
   const [editMode, setEditMode] = useState(false);
   const [showShiftBar, setShowShiftBar] = useState(false);
   const [showCopyBar, setShowCopyBar] = useState(false);
+  const [elapsedSec, setElapsedSec] = useState(0);
+
+  useEffect(() => {
+    if (!sessionStartMs) {
+      setElapsedSec(0);
+      return;
+    }
+    const update = () =>
+      setElapsedSec(
+        Math.max(0, Math.floor((Date.now() - sessionStartMs) / 1000)),
+      );
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [sessionStartMs]);
 
   const lang = settings.lang || "en";
   const t = STRINGS[lang];
@@ -95,6 +116,13 @@ export const ProgramScreen: React.FC<Props> = ({
     (e) => e.completed || (e.sets && e.sets.some((s) => s.completed)),
   );
   const progressRatio = totalCount > 0 ? completedCount / totalCount : 0;
+  const liveVolumeKg = calcExercisesVolumeKg(day.exercises);
+
+  const formatElapsed = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
 
   const parseQuickAdd = () => {
     const raw = quickInput.trim();
@@ -160,6 +188,30 @@ export const ProgramScreen: React.FC<Props> = ({
         lang={lang}
         onSelect={onSelectDay}
       />
+
+      {/* Canlı Seans Durum Çubuğu (İlk set işaretlendiğinde otomatik belirir) */}
+      {hasAnyCompletedSet && !day.isRestDay && (
+        <View style={[styles.liveBar, { borderColor: accentHex }]}>
+          <View style={styles.liveLeft}>
+            <Flame size={14} color={accentHex} />
+            <Text style={[styles.liveTag, { color: accentHex }]}>
+              {t.liveSessionLabel}
+            </Text>
+          </View>
+          <View style={styles.liveMetrics}>
+            {sessionStartMs && (
+              <Text style={styles.liveMetricText}>
+                ⏱ {formatElapsed(elapsedSec)}
+              </Text>
+            )}
+            {liveVolumeKg > 0 && (
+              <Text style={styles.liveMetricText}>
+                {t.volumeLabel}: {liveVolumeKg} kg
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
 
       <View style={styles.dayHeader}>
         <View style={styles.dayTitleWrap}>
@@ -358,6 +410,9 @@ export const ProgramScreen: React.FC<Props> = ({
                 index={idx}
                 total={day.exercises.length}
                 editMode={editMode}
+                historicalBest1RM={
+                  historicalBestMap[normalizeExName(ex.name)] || 0
+                }
                 accentHex={accentHex}
                 lang={lang}
                 onUpdate={(patch) => onUpdateExercise(day.id, ex.id, patch)}
@@ -432,6 +487,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 130,
+  },
+  liveBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  liveLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  liveTag: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  liveMetrics: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  liveMetricText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    fontVariant: ["tabular-nums"],
   },
   dayHeader: {
     flexDirection: "row",

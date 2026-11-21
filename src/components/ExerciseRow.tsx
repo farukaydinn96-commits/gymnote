@@ -19,16 +19,18 @@ import {
   Plus,
   Minus,
 } from "lucide-react-native";
-import { Exercise, Lang, SetEntry } from "../types/workout";
+import { Exercise, Lang, SetEntry, SetType } from "../types/workout";
 import { COLORS } from "../constants/theme";
 import { STRINGS } from "../constants/i18n";
 import { ensureExerciseSets, summarizeSetsToDetail } from "../utils/sets";
+import { calcExerciseBest1RM, calcSet1RM } from "../utils/analytics";
 
 interface Props {
   exercise: Exercise;
   index: number;
   total: number;
   editMode: boolean;
+  historicalBest1RM: number;
   accentHex: string;
   lang: Lang;
   onUpdate: (patch: Partial<Exercise>) => void;
@@ -37,11 +39,21 @@ interface Props {
   onSetCompleted: () => void;
 }
 
+const SET_TYPE_CYCLE: SetType[] = ["N", "W", "D", "F"];
+
+const SET_TYPE_COLORS: Record<SetType, string> = {
+  N: COLORS.textSecondary,
+  W: "#38BDF8",
+  D: "#BF5AF2",
+  F: "#FF453A",
+};
+
 export const ExerciseRow: React.FC<Props> = ({
   exercise,
   index,
   total,
   editMode,
+  historicalBest1RM,
   accentHex,
   lang,
   onUpdate,
@@ -53,15 +65,32 @@ export const ExerciseRow: React.FC<Props> = ({
   const t = STRINGS[lang];
   const sets = ensureExerciseSets(exercise);
   const doneSetsCount = sets.filter((s) => s.completed).length;
+  const currentEst1RM = calcExerciseBest1RM(exercise, false);
+
+  const checkAutoPR = (
+    nextSets: SetEntry[],
+    fallbackManual?: boolean,
+  ): boolean => {
+    if (historicalBest1RM <= 0) return Boolean(fallbackManual);
+    const bestCompleted = nextSets.reduce((acc, s) => {
+      if (!s.completed || s.type === "W") return acc;
+      const est = calcSet1RM(s.weight, s.reps);
+      return est > acc ? est : acc;
+    }, 0);
+    return bestCompleted > historicalBest1RM ? true : Boolean(fallbackManual);
+  };
 
   const toggleAllCompleted = () => {
     if (Platform.OS !== "web")
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const nextCompleted = !exercise.completed;
     const nextSets = sets.map((s) => ({ ...s, completed: nextCompleted }));
+    const autoPR = checkAutoPR(nextSets, exercise.isPR);
+
     onUpdate({
       completed: nextCompleted,
       sets: nextSets,
+      isPR: nextCompleted ? autoPR : false,
       detail: summarizeSetsToDetail(nextSets, exercise.detail),
     });
     if (nextCompleted) onSetCompleted();
@@ -70,15 +99,34 @@ export const ExerciseRow: React.FC<Props> = ({
   const updateSingleSet = (setId: string, patch: Partial<SetEntry>) => {
     const nextSets = sets.map((s) => (s.id === setId ? { ...s, ...patch } : s));
     const allDone = nextSets.length > 0 && nextSets.every((s) => s.completed);
+    const isPR = checkAutoPR(nextSets, exercise.isPR);
+
     onUpdate({
       sets: nextSets,
       completed: allDone,
+      isPR,
       detail: summarizeSetsToDetail(nextSets, exercise.detail),
     });
+
     if (patch.completed === true) {
       if (Platform.OS !== "web") Haptics.selectionAsync();
       onSetCompleted();
     }
+  };
+
+  const cycleSetType = (setObj: SetEntry) => {
+    const cur: SetType = setObj.type || "N";
+    const nextType =
+      SET_TYPE_CYCLE[(SET_TYPE_CYCLE.indexOf(cur) + 1) % SET_TYPE_CYCLE.length];
+    updateSingleSet(setObj.id, { type: nextType });
+  };
+
+  const bumpLastSetWeight = (delta: number) => {
+    const target = sets.find((s) => !s.completed) || sets[sets.length - 1];
+    if (!target) return;
+    const current = parseFloat((target.weight || "0").replace(",", ".")) || 0;
+    const nextVal = Math.max(0, Math.round((current + delta) * 100) / 100);
+    updateSingleSet(target.id, { weight: String(nextVal) });
   };
 
   const handleAddSet = () => {
@@ -88,6 +136,7 @@ export const ExerciseRow: React.FC<Props> = ({
       reps: last?.reps || "8",
       weight: last?.weight || "",
       completed: false,
+      type: "N",
       prevReps: last?.prevReps,
       prevWeight: last?.prevWeight,
     };
@@ -119,7 +168,6 @@ export const ExerciseRow: React.FC<Props> = ({
       ]}
     >
       <View style={styles.mainRow}>
-        {/* Belirgin, başparmak dostu tamamlama kutusu */}
         <TouchableOpacity
           activeOpacity={0.75}
           onPress={toggleAllCompleted}
@@ -138,7 +186,6 @@ export const ExerciseRow: React.FC<Props> = ({
           )}
         </TouchableOpacity>
 
-        {/* Orta alan: İsim + kesilmeyen alt bilgi; dokununca setler açılır */}
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => !editMode && setExpanded((p) => !p)}
@@ -153,18 +200,33 @@ export const ExerciseRow: React.FC<Props> = ({
               placeholderTextColor={COLORS.textMuted}
             />
           ) : (
-            <Text
-              style={[
-                styles.nameText,
-                exercise.completed && styles.completedText,
-              ]}
-            >
-              {exercise.name}
-            </Text>
+            <View style={styles.titleLine}>
+              <Text
+                style={[
+                  styles.nameText,
+                  exercise.completed && styles.completedText,
+                ]}
+              >
+                {exercise.name}
+              </Text>
+              {exercise.isPR && (
+                <View style={[styles.prChip, { borderColor: accentHex }]}>
+                  <Text style={[styles.prChipText, { color: accentHex }]}>
+                    PR
+                  </Text>
+                </View>
+              )}
+            </View>
           )}
 
           <View style={styles.metaRow}>
             <Text style={styles.detailText}>{exercise.detail || "3 × 10"}</Text>
+
+            {currentEst1RM > 0 && (
+              <Text style={styles.estText}>
+                {t.est1RmLabel} {currentEst1RM}kg
+              </Text>
+            )}
 
             {doneSetsCount > 0 && !exercise.completed && (
               <Text style={[styles.partialBadge, { color: accentHex }]}>
@@ -180,7 +242,6 @@ export const ExerciseRow: React.FC<Props> = ({
           </View>
         </TouchableOpacity>
 
-        {/* Sağ aksiyonlar: Antrenman modunda sadece PR ve Aç/Kapat; Düzenle modunda Sırala/Sil */}
         {editMode ? (
           <View style={styles.editActions}>
             <TouchableOpacity
@@ -233,21 +294,20 @@ export const ExerciseRow: React.FC<Props> = ({
         )}
       </View>
 
-      {/* Set Bazlı Kayıt Çekmecesi */}
       {expanded && !editMode && (
         <View style={styles.setsDrawer}>
           <View style={styles.setsHeader}>
-            <Text style={[styles.setColLabel, { width: 36 }]}>SET</Text>
+            <Text style={[styles.setColLabel, { width: 42 }]}>SET</Text>
             <Text style={[styles.setColLabel, { flex: 1 }]}>
               {t.prevPrefix}
             </Text>
             <Text
-              style={[styles.setColLabel, { width: 68, textAlign: "center" }]}
+              style={[styles.setColLabel, { width: 66, textAlign: "center" }]}
             >
               {t.kgLabel}
             </Text>
             <Text
-              style={[styles.setColLabel, { width: 62, textAlign: "center" }]}
+              style={[styles.setColLabel, { width: 60, textAlign: "center" }]}
             >
               {t.repsLabel}
             </Text>
@@ -258,60 +318,77 @@ export const ExerciseRow: React.FC<Props> = ({
             </Text>
           </View>
 
-          {sets.map((s, sIdx) => (
-            <View
-              key={s.id}
-              style={[
-                styles.setRow,
-                s.completed && { backgroundColor: "rgba(255,255,255,0.04)" },
-              ]}
-            >
-              <Text style={styles.setNum}>{sIdx + 1}</Text>
-
-              <Text style={styles.setPrev} numberOfLines={1}>
-                {s.prevWeight || s.prevReps
-                  ? `${s.prevWeight ? `${s.prevWeight}kg × ` : ""}${s.prevReps || "-"}`
-                  : "—"}
-              </Text>
-
-              <TextInput
-                value={s.weight}
-                onChangeText={(weight) => updateSingleSet(s.id, { weight })}
-                placeholder="-"
-                placeholderTextColor={COLORS.textMuted}
-                keyboardType="decimal-pad"
-                style={styles.setInput}
-              />
-
-              <TextInput
-                value={s.reps}
-                onChangeText={(reps) => updateSingleSet(s.id, { reps })}
-                placeholder="0"
-                placeholderTextColor={COLORS.textMuted}
-                keyboardType="number-pad"
-                style={styles.setInput}
-              />
-
-              <TouchableOpacity
-                onPress={() =>
-                  updateSingleSet(s.id, { completed: !s.completed })
-                }
+          {sets.map((s, sIdx) => {
+            const sType: SetType = s.type || "N";
+            return (
+              <View
+                key={s.id}
                 style={[
-                  styles.setCheck,
-                  s.completed && {
-                    backgroundColor: accentHex,
-                    borderColor: accentHex,
-                  },
+                  styles.setRow,
+                  s.completed && { backgroundColor: "rgba(255,255,255,0.04)" },
                 ]}
               >
-                <Check
-                  size={13}
-                  color={s.completed ? "#000000" : COLORS.textMuted}
-                  strokeWidth={2.8}
+                <TouchableOpacity
+                  onPress={() => cycleSetType(s)}
+                  style={styles.setTypeBadge}
+                >
+                  <Text
+                    style={[
+                      styles.setTypeText,
+                      { color: SET_TYPE_COLORS[sType] },
+                    ]}
+                  >
+                    {sType === "N" ? sIdx + 1 : sType}
+                  </Text>
+                </TouchableOpacity>
+
+                <Text style={styles.setPrev} numberOfLines={1}>
+                  {s.prevWeight || s.prevReps
+                    ? `${s.prevWeight ? `${s.prevWeight}kg × ` : ""}${s.prevReps || "-"}`
+                    : historicalBest1RM > 0
+                      ? `Best 1RM: ${historicalBest1RM}kg`
+                      : "—"}
+                </Text>
+
+                <TextInput
+                  value={s.weight}
+                  onChangeText={(weight) => updateSingleSet(s.id, { weight })}
+                  placeholder="-"
+                  placeholderTextColor={COLORS.textMuted}
+                  keyboardType="decimal-pad"
+                  style={styles.setInput}
                 />
-              </TouchableOpacity>
-            </View>
-          ))}
+
+                <TextInput
+                  value={s.reps}
+                  onChangeText={(reps) => updateSingleSet(s.id, { reps })}
+                  placeholder="0"
+                  placeholderTextColor={COLORS.textMuted}
+                  keyboardType="number-pad"
+                  style={styles.setInput}
+                />
+
+                <TouchableOpacity
+                  onPress={() =>
+                    updateSingleSet(s.id, { completed: !s.completed })
+                  }
+                  style={[
+                    styles.setCheck,
+                    s.completed && {
+                      backgroundColor: accentHex,
+                      borderColor: accentHex,
+                    },
+                  ]}
+                >
+                  <Check
+                    size={13}
+                    color={s.completed ? "#000000" : COLORS.textMuted}
+                    strokeWidth={2.8}
+                  />
+                </TouchableOpacity>
+              </View>
+            );
+          })}
 
           <View style={styles.setFooterRow}>
             <TouchableOpacity
@@ -333,7 +410,26 @@ export const ExerciseRow: React.FC<Props> = ({
                 <Text style={styles.setActionText}>{t.removeSet}</Text>
               </TouchableOpacity>
             )}
+
+            <View style={styles.quickBumpGroup}>
+              <TouchableOpacity
+                onPress={() => bumpLastSetWeight(-2.5)}
+                style={styles.bumpPill}
+              >
+                <Text style={styles.bumpText}>-2.5kg</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => bumpLastSetWeight(2.5)}
+                style={[styles.bumpPill, { borderColor: accentHex }]}
+              >
+                <Text style={[styles.bumpText, { color: accentHex }]}>
+                  +2.5kg
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
+
+          <Text style={styles.setTypeHint}>{t.setTypeHint}</Text>
         </View>
       )}
     </View>
@@ -376,10 +472,26 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  titleLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
   nameText: {
     fontSize: 15,
     fontWeight: "700",
     color: COLORS.textPrimary,
+  },
+  prChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 5,
+    borderWidth: 1,
+  },
+  prChipText: {
+    fontSize: 9,
+    fontWeight: "900",
   },
   completedText: {
     textDecorationLine: "line-through",
@@ -403,6 +515,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: COLORS.textSecondary,
+    fontVariant: ["tabular-nums"],
+  },
+  estText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: COLORS.textMuted,
     fontVariant: ["tabular-nums"],
   },
   partialBadge: {
@@ -478,11 +596,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderRadius: 8,
   },
-  setNum: {
-    width: 32,
-    fontSize: 12,
-    fontWeight: "800",
-    color: COLORS.textSecondary,
+  setTypeBadge: {
+    width: 34,
+    height: 28,
+    borderRadius: 7,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  setTypeText: {
+    fontSize: 11,
+    fontWeight: "900",
     fontVariant: ["tabular-nums"],
   },
   setPrev: {
@@ -492,9 +618,9 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
   },
   setInput: {
-    width: 64,
+    width: 60,
     paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     borderRadius: 8,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
@@ -513,11 +639,13 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 6,
+    marginLeft: 4,
   },
   setFooterRow: {
     flexDirection: "row",
-    gap: 10,
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
     marginTop: 6,
   },
   setActionPill: {
@@ -535,5 +663,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: COLORS.textSecondary,
+  },
+  quickBumpGroup: {
+    flexDirection: "row",
+    gap: 6,
+    marginLeft: "auto",
+  },
+  bumpPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  bumpText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: COLORS.textSecondary,
+    fontVariant: ["tabular-nums"],
+  },
+  setTypeHint: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    marginTop: 4,
   },
 });

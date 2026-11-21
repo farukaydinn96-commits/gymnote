@@ -56,13 +56,29 @@ export const WorkoutSummaryModal: React.FC<Props> = ({
         <View style={styles.divider} />
 
         <View style={styles.statCol}>
+          <Text style={styles.statNum}>
+            {log.totalVolumeKg ? `${log.totalVolumeKg}` : "0"}
+            <Text style={styles.unitSmall}> kg</Text>
+          </Text>
+          <Text style={styles.statLabel}>{t.volumeLabel}</Text>
+        </View>
+
+        <View style={styles.divider} />
+
+        <View style={styles.statCol}>
           <View style={styles.prRow}>
-            <Trophy size={16} color={accentHex} />
+            <Trophy size={15} color={accentHex} />
             <Text style={styles.statNum}>{log.prCount || 0}</Text>
           </View>
           <Text style={styles.statLabel}>{t.newPrStat}</Text>
         </View>
       </View>
+
+      {(log.durationMin || 0) > 0 && (
+        <Text style={styles.durationChip}>
+          ⏱ {t.durationLabel}: {log.durationMin} {t.minShort}
+        </Text>
+      )}
 
       <Text style={styles.quoteText}>“{quote}”</Text>
 
@@ -106,7 +122,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    maxWidth: 380,
+    maxWidth: 400,
     borderRadius: 20,
     overflow: "hidden",
     borderWidth: 1,
@@ -118,7 +134,7 @@ const styles = StyleSheet.create({
   },
   inner: {
     padding: 22,
-    backgroundColor: "rgba(8,8,10,0.82)",
+    backgroundColor: "rgba(8,8,10,0.84)",
     alignItems: "center",
   },
   badgeRow: {
@@ -152,7 +168,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingVertical: 14,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   statCol: {
     flex: 1,
@@ -166,19 +182,30 @@ const styles = StyleSheet.create({
   prRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 4,
   },
   statNum: {
-    fontSize: 22,
+    fontSize: 19,
     fontWeight: "800",
     color: COLORS.textPrimary,
     fontVariant: ["tabular-nums"],
   },
+  unitSmall: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.textSecondary,
+  },
   statLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
     letterSpacing: 0.8,
     color: COLORS.textSecondary,
+  },
+  durationChip: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.textSecondary,
+    marginBottom: 12,
   },
   quoteText: {
     fontSize: 13,

@@ -3,12 +3,25 @@ export type ShiftType = "none" | "morning" | "evening" | "night" | "off";
 export type AccentKey = "lime" | "crimson" | "white" | "amber" | "blue";
 export type Lang = "tr" | "en";
 export type TabKey = "program" | "progress" | "profile";
+export type SetType = "N" | "W" | "D" | "F";
+export type MuscleGroup =
+  | "chest"
+  | "back"
+  | "shoulders"
+  | "biceps"
+  | "triceps"
+  | "quads"
+  | "hamstrings"
+  | "glutes"
+  | "calves"
+  | "core";
 
 export interface SetEntry {
   id: string;
   reps: string;
   weight: string;
   completed: boolean;
+  type?: SetType;
   prevReps?: string;
   prevWeight?: string;
 }
@@ -42,6 +55,8 @@ export interface WorkoutLog {
   completedCount: number;
   totalCount: number;
   prCount?: number;
+  totalVolumeKg?: number;
+  durationMin?: number;
   exercises: Exercise[];
 }
 
