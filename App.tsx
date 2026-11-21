@@ -14,6 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CalendarDays, Dumbbell, User } from "lucide-react-native";
 
 import {
+  AccentKey,
   AppSettings,
   DayId,
   DayPlan,
@@ -106,9 +107,14 @@ export default function App() {
         if (rawLogs) setLogs(JSON.parse(rawLogs));
         if (rawSettings) {
           const parsed = JSON.parse(rawSettings);
+          const safeAccent: AccentKey =
+            parsed.accent && ACCENTS[parsed.accent as AccentKey]
+              ? parsed.accent
+              : "lime";
           setSettings({
             ...DEFAULT_SETTINGS,
             ...parsed,
+            accent: safeAccent,
             presetBgId: parsed.presetBgId || "focus",
             lang: parsed.lang || "en",
           });
@@ -136,7 +142,7 @@ export default function App() {
 
   const lang: Lang = settings.lang || "en";
   const t = STRINGS[lang];
-  const accentHex = ACCENTS[settings.accent].hex;
+  const accentHex = ACCENTS[settings.accent]?.hex || ACCENTS.lime.hex;
 
   const isLoggedToday = logs.some(
     (l) => l.dateISO === todayISO && (!l.dayId || l.dayId === selectedDayId),
@@ -266,7 +272,6 @@ export default function App() {
     }
   };
 
-  // Aynı gün aynı antrenman tekrar kaydedilirse çift kayıt oluşturmaz, günceller (upsert)
   const handleFinishWorkout = (day: DayPlan) => {
     const localISO = getLocalISODate();
     const prCount = day.exercises.filter((e) => e.isPR).length;
@@ -359,7 +364,15 @@ export default function App() {
       setDays(parsed.days);
       if (Array.isArray(parsed.logs)) setLogs(parsed.logs);
       if (parsed.settings) {
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed.settings });
+        const safeAccent: AccentKey =
+          parsed.settings.accent && ACCENTS[parsed.settings.accent as AccentKey]
+            ? parsed.settings.accent
+            : "lime";
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          ...parsed.settings,
+          accent: safeAccent,
+        });
       }
       setBackupMode(null);
       Alert.alert("GYMNOTE", t.backupSuccess);
@@ -379,7 +392,6 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
-        {/* Masaüstünde Üst Bar Navigasyonu */}
         {isDesktop && (
           <View style={styles.topNavWrap}>
             <View style={styles.topNavInner}>
@@ -422,7 +434,6 @@ export default function App() {
           </View>
         )}
 
-        {/* Odaklı Tek Sayfa İçerik Alanı */}
         <View style={styles.pageContainer}>
           {tab === "program" && (
             <ProgramScreen
@@ -489,7 +500,6 @@ export default function App() {
           )}
         </View>
 
-        {/* Mobilde Alt Sekme Çubuğu */}
         {!isDesktop && (
           <View style={styles.tabBar}>
             {navItems.map(({ key, label, Icon }) => {
