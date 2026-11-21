@@ -31,6 +31,7 @@ export interface Exercise {
   name: string;
   detail: string;
   lastDetail?: string;
+  note?: string;
   completed: boolean;
   isPR?: boolean;
   sets?: SetEntry[];

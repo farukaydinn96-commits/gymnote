@@ -10,6 +10,7 @@ import {
   Platform,
 } from "react-native";
 import {
+  ArrowLeftRight,
   Briefcase,
   CheckCircle2,
   Copy,
@@ -18,6 +19,7 @@ import {
   Plus,
   RotateCcw,
   SlidersHorizontal,
+  TrendingDown,
 } from "lucide-react-native";
 import {
   AppSettings,
@@ -55,6 +57,8 @@ interface Props {
   onDeleteExercise: (dayId: DayId, exId: string) => void;
   onMoveExercise: (dayId: DayId, index: number, direction: -1 | 1) => void;
   onCopyDay: (fromDayId: DayId, toDayId: DayId) => void;
+  onApplyDeload: (dayId: DayId) => void;
+  onSwapWithRestDay: (dayId: DayId) => void;
   onApplyTemplate: (days: DayPlan[], name: string) => void;
   onFinishWorkout: (day: DayPlan) => void;
   onResetWeek: () => void;
@@ -80,6 +84,8 @@ export const ProgramScreen: React.FC<Props> = ({
   onDeleteExercise,
   onMoveExercise,
   onCopyDay,
+  onApplyDeload,
+  onSwapWithRestDay,
   onApplyTemplate,
   onFinishWorkout,
   onResetWeek,
@@ -117,6 +123,7 @@ export const ProgramScreen: React.FC<Props> = ({
   );
   const progressRatio = totalCount > 0 ? completedCount / totalCount : 0;
   const liveVolumeKg = calcExercisesVolumeKg(day.exercises);
+  const hasRestDayAvailable = days.some((d) => d.isRestDay && d.id !== day.id);
 
   const formatElapsed = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -189,7 +196,6 @@ export const ProgramScreen: React.FC<Props> = ({
         onSelect={onSelectDay}
       />
 
-      {/* Canlı Seans Durum Çubuğu (İlk set işaretlendiğinde otomatik belirir) */}
       {hasAnyCompletedSet && !day.isRestDay && (
         <View style={[styles.liveBar, { borderColor: accentHex }]}>
           <View style={styles.liveLeft}>
@@ -208,6 +214,39 @@ export const ProgramScreen: React.FC<Props> = ({
               <Text style={styles.liveMetricText}>
                 {t.volumeLabel}: {liveVolumeKg} kg
               </Text>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Vardiya Zekası: Gece Vardiyası Yorgunluk Adaptasyon Kartı */}
+      {day.shift === "night" && !day.isRestDay && day.exercises.length > 0 && (
+        <View style={styles.smartShiftBanner}>
+          <Text style={styles.smartShiftTitle}>
+            🌙 {t.nightShiftAlertTitle}
+          </Text>
+          <Text style={styles.smartShiftSub}>{t.nightShiftAlertSub}</Text>
+          <View style={styles.smartShiftActions}>
+            <TouchableOpacity
+              onPress={() => onApplyDeload(day.id)}
+              style={[styles.smartShiftBtn, { borderColor: "#38BDF8" }]}
+            >
+              <TrendingDown size={13} color="#38BDF8" />
+              <Text style={[styles.smartShiftBtnText, { color: "#38BDF8" }]}>
+                {t.applyDeloadBtn}
+              </Text>
+            </TouchableOpacity>
+
+            {hasRestDayAvailable && (
+              <TouchableOpacity
+                onPress={() => onSwapWithRestDay(day.id)}
+                style={[styles.smartShiftBtn, { borderColor: accentHex }]}
+              >
+                <ArrowLeftRight size={13} color={accentHex} />
+                <Text style={[styles.smartShiftBtnText, { color: accentHex }]}>
+                  {t.swapRestBtn}
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -519,6 +558,45 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.textPrimary,
     fontVariant: ["tabular-nums"],
+  },
+  smartShiftBanner: {
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: "rgba(56,189,248,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.35)",
+    marginBottom: 14,
+    gap: 6,
+  },
+  smartShiftTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: COLORS.textPrimary,
+  },
+  smartShiftSub: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
+  },
+  smartShiftActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  smartShiftBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 9,
+    backgroundColor: "#08080B",
+    borderWidth: 1,
+  },
+  smartShiftBtnText: {
+    fontSize: 11,
+    fontWeight: "800",
   },
   dayHeader: {
     flexDirection: "row",

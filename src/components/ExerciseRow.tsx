@@ -18,12 +18,15 @@ import {
   ArrowDown,
   Plus,
   Minus,
+  Disc,
+  FileText,
 } from "lucide-react-native";
 import { Exercise, Lang, SetEntry, SetType } from "../types/workout";
 import { COLORS } from "../constants/theme";
 import { STRINGS } from "../constants/i18n";
 import { ensureExerciseSets, summarizeSetsToDetail } from "../utils/sets";
 import { calcExerciseBest1RM, calcSet1RM } from "../utils/analytics";
+import { PlateCalculatorModal } from "./PlateCalculatorModal";
 
 interface Props {
   exercise: Exercise;
@@ -62,10 +65,14 @@ export const ExerciseRow: React.FC<Props> = ({
   onSetCompleted,
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const [plateModalOpen, setPlateModalOpen] = useState(false);
   const t = STRINGS[lang];
   const sets = ensureExerciseSets(exercise);
   const doneSetsCount = sets.filter((s) => s.completed).length;
   const currentEst1RM = calcExerciseBest1RM(exercise, false);
+
+  const activeSetForWeight =
+    sets.find((s) => !s.completed) || sets[sets.length - 1];
 
   const checkAutoPR = (
     nextSets: SetEntry[],
@@ -122,11 +129,11 @@ export const ExerciseRow: React.FC<Props> = ({
   };
 
   const bumpLastSetWeight = (delta: number) => {
-    const target = sets.find((s) => !s.completed) || sets[sets.length - 1];
-    if (!target) return;
-    const current = parseFloat((target.weight || "0").replace(",", ".")) || 0;
+    if (!activeSetForWeight) return;
+    const current =
+      parseFloat((activeSetForWeight.weight || "0").replace(",", ".")) || 0;
     const nextVal = Math.max(0, Math.round((current + delta) * 100) / 100);
-    updateSingleSet(target.id, { weight: String(nextVal) });
+    updateSingleSet(activeSetForWeight.id, { weight: String(nextVal) });
   };
 
   const handleAddSet = () => {
@@ -233,13 +240,13 @@ export const ExerciseRow: React.FC<Props> = ({
                 {doneSetsCount}/{sets.length} {t.setsDone}
               </Text>
             )}
-
-            {exercise.lastDetail ? (
-              <Text style={styles.prevText}>
-                {t.prevPrefix} {exercise.lastDetail}
-              </Text>
-            ) : null}
           </View>
+
+          {!expanded && exercise.note ? (
+            <Text style={styles.pinnedNotePreview} numberOfLines={1}>
+              📌 {exercise.note}
+            </Text>
+          ) : null}
         </TouchableOpacity>
 
         {editMode ? (
@@ -296,6 +303,17 @@ export const ExerciseRow: React.FC<Props> = ({
 
       {expanded && !editMode && (
         <View style={styles.setsDrawer}>
+          <View style={styles.noteInputWrap}>
+            <FileText size={13} color={COLORS.textMuted} />
+            <TextInput
+              value={exercise.note || ""}
+              onChangeText={(note) => onUpdate({ note })}
+              placeholder={t.notePlaceholder}
+              placeholderTextColor={COLORS.textMuted}
+              style={styles.noteInput}
+            />
+          </View>
+
           <View style={styles.setsHeader}>
             <Text style={[styles.setColLabel, { width: 42 }]}>SET</Text>
             <Text style={[styles.setColLabel, { flex: 1 }]}>
@@ -411,19 +429,29 @@ export const ExerciseRow: React.FC<Props> = ({
               </TouchableOpacity>
             )}
 
+            <TouchableOpacity
+              onPress={() => setPlateModalOpen(true)}
+              style={styles.setActionPill}
+            >
+              <Disc size={12} color="#38BDF8" />
+              <Text style={[styles.setActionText, { color: "#38BDF8" }]}>
+                {t.platesBtn}
+              </Text>
+            </TouchableOpacity>
+
             <View style={styles.quickBumpGroup}>
               <TouchableOpacity
                 onPress={() => bumpLastSetWeight(-2.5)}
                 style={styles.bumpPill}
               >
-                <Text style={styles.bumpText}>-2.5kg</Text>
+                <Text style={styles.bumpText}>-2.5</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => bumpLastSetWeight(2.5)}
                 style={[styles.bumpPill, { borderColor: accentHex }]}
               >
                 <Text style={[styles.bumpText, { color: accentHex }]}>
-                  +2.5kg
+                  +2.5
                 </Text>
               </TouchableOpacity>
             </View>
@@ -432,6 +460,19 @@ export const ExerciseRow: React.FC<Props> = ({
           <Text style={styles.setTypeHint}>{t.setTypeHint}</Text>
         </View>
       )}
+
+      <PlateCalculatorModal
+        visible={plateModalOpen}
+        initialWeight={activeSetForWeight?.weight || "60"}
+        accentHex={accentHex}
+        lang={lang}
+        onApplyWeight={(w) => {
+          if (activeSetForWeight) {
+            updateSingleSet(activeSetForWeight.id, { weight: w });
+          }
+        }}
+        onClose={() => setPlateModalOpen(false)}
+      />
     </View>
   );
 };
@@ -470,7 +511,7 @@ const styles = StyleSheet.create({
   },
   infoArea: {
     flex: 1,
-    gap: 4,
+    gap: 3,
   },
   titleLine: {
     flexDirection: "row",
@@ -528,10 +569,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     fontVariant: ["tabular-nums"],
   },
-  prevText: {
+  pinnedNotePreview: {
     fontSize: 11,
-    color: COLORS.textMuted,
-    fontVariant: ["tabular-nums"],
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   workoutActions: {
     flexDirection: "row",
@@ -575,6 +616,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 6,
+  },
+  noteInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 9,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 4,
+  },
+  noteInput: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.textPrimary,
+    padding: 0,
   },
   setsHeader: {
     flexDirection: "row",
@@ -645,14 +704,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     marginTop: 6,
   },
   setActionPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: COLORS.surface,
@@ -666,11 +725,11 @@ const styles = StyleSheet.create({
   },
   quickBumpGroup: {
     flexDirection: "row",
-    gap: 6,
+    gap: 5,
     marginLeft: "auto",
   },
   bumpPill: {
-    paddingHorizontal: 9,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: COLORS.surface,

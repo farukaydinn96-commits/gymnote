@@ -99,6 +99,19 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     setsDone: "set",
     addSet: "+ Set",
     removeSet: "- Set",
+    platesBtn: "Plaka",
+    plateModalTitle: "Olimpik Plaka Hesaplayıcı",
+    barWeightLabel: "Bar Ağırlığı",
+    perSideLabel: "HER BİR TARAFA TAKILACAK",
+    onlyBarMsg: "Sadece boş olimpik bar (ekstra plaka gerekmiyor).",
+    notePlaceholder:
+      "Kalıcı form / makine notu ekle (ör: Sehpa 30°, koltuk 4)...",
+    nightShiftAlertTitle: "Gece Vardiyası Adaptasyonu",
+    nightShiftAlertSub:
+      "Merkezi sinir sistemi yorgunluğu yüksek olabilir. Ağırlıkları -%10 düşürebilir veya dinlenme günüyle takas edebilirsin.",
+    applyDeloadBtn: "-%10 Deload Uygula",
+    swapRestBtn: "Dinlenme Günüyle Takas Et",
+    deloadAppliedMsg: "Bugünkü çalışma ağırlıklarına -%10 deload uygulandı.",
     kgLabel: "KG",
     repsLabel: "TEKRAR",
     setTypeHint:
@@ -187,6 +200,19 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     setsDone: "sets",
     addSet: "+ Set",
     removeSet: "- Set",
+    platesBtn: "Plates",
+    plateModalTitle: "Olympic Plate Calculator",
+    barWeightLabel: "Barbell Weight",
+    perSideLabel: "LOAD PER SIDE",
+    onlyBarMsg: "Empty barbell only (no extra plates needed).",
+    notePlaceholder:
+      "Add pinned form / machine cue (e.g. Incline 30°, seat 4)...",
+    nightShiftAlertTitle: "Night Shift Recovery Mode",
+    nightShiftAlertSub:
+      "CNS fatigue may be elevated after night shift. Consider a -10% deload or swapping with a rest day.",
+    applyDeloadBtn: "Apply -10% Deload",
+    swapRestBtn: "Swap with Rest Day",
+    deloadAppliedMsg: "-10% deload applied to today’s working weights.",
     kgLabel: "KG",
     repsLabel: "REPS",
     setTypeHint:

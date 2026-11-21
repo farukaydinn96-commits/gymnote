@@ -28,7 +28,11 @@ import { DEFAULT_SETTINGS, INITIAL_WEEK } from "./src/constants/initialData";
 import { BgPreset, resolveBackgroundSource } from "./src/constants/backgrounds";
 import { DAY_NAMES, STRINGS } from "./src/constants/i18n";
 import { getLocalISODate, getTodayDayId } from "./src/utils/date";
-import { ensureExerciseSets, parseDetailToSets } from "./src/utils/sets";
+import {
+  ensureExerciseSets,
+  parseDetailToSets,
+  summarizeSetsToDetail,
+} from "./src/utils/sets";
 import {
   calcExercisesVolumeKg,
   getHistoricalBest1RMMap,
@@ -264,6 +268,63 @@ export default function App() {
     setSelectedDayId(toDayId);
   };
 
+  // Gece vardiyası -%10 Deload motoru (en yakın 2.5 kg'a yuvarlar)
+  const handleApplyDeload = (dayId: DayId) => {
+    setDays((prev) =>
+      prev.map((d) => {
+        if (d.id !== dayId) return d;
+        return {
+          ...d,
+          exercises: d.exercises.map((e) => {
+            const nextSets = ensureExerciseSets(e).map((s) => {
+              const w = parseFloat((s.weight || "").replace(",", "."));
+              if (isNaN(w) || w <= 0) return s;
+              const reduced = Math.max(2.5, Math.round((w * 0.9) / 2.5) * 2.5);
+              return { ...s, weight: String(reduced) };
+            });
+            return {
+              ...e,
+              sets: nextSets,
+              detail: summarizeSetsToDetail(nextSets, e.detail),
+            };
+          }),
+        };
+      }),
+    );
+    if (Platform.OS === "web") {
+      window.alert(t.deloadAppliedMsg);
+    } else {
+      Alert.alert("GYMNOTE", t.deloadAppliedMsg);
+    }
+  };
+
+  // Gece vardiyası gününü haftadaki ilk uygun Dinlenme Günü ile takas eder
+  const handleSwapWithRestDay = (dayId: DayId) => {
+    setDays((prev) => {
+      const currentIdx = prev.findIndex((d) => d.id === dayId);
+      const restIdx = prev.findIndex((d) => d.isRestDay && d.id !== dayId);
+      if (currentIdx < 0 || restIdx < 0) return prev;
+
+      const cur = prev[currentIdx];
+      const rest = prev[restIdx];
+      const next = [...prev];
+
+      next[currentIdx] = {
+        ...cur,
+        title: rest.title,
+        isRestDay: true,
+        exercises: [],
+      };
+      next[restIdx] = {
+        ...rest,
+        title: cur.title,
+        isRestDay: false,
+        exercises: cur.exercises,
+      };
+      return next;
+    });
+  };
+
   const handleApplyTemplate = (templateDays: DayPlan[], name: string) => {
     setDays(
       templateDays.map((d) => ({
@@ -478,6 +539,8 @@ export default function App() {
               onDeleteExercise={handleDeleteExercise}
               onMoveExercise={handleMoveExercise}
               onCopyDay={handleCopyDay}
+              onApplyDeload={handleApplyDeload}
+              onSwapWithRestDay={handleSwapWithRestDay}
               onApplyTemplate={handleApplyTemplate}
               onFinishWorkout={handleFinishWorkout}
               onResetWeek={handleResetWeek}

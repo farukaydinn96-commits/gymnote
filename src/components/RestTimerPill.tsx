@@ -9,6 +9,7 @@ import {
 import * as Haptics from "expo-haptics";
 import { Timer, X, RotateCcw } from "lucide-react-native";
 import { COLORS } from "../constants/theme";
+import { playRestFinishedChime } from "../utils/plates";
 
 interface Props {
   accentHex: string;
@@ -40,6 +41,7 @@ export const RestTimerPill: React.FC<Props> = ({
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           setRunning(false);
+          playRestFinishedChime();
           if (Platform.OS !== "web") {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
