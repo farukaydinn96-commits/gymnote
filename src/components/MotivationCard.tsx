@@ -3,9 +3,11 @@ import {
   View,
   Text,
   TextInput,
-  ImageBackground,
+  Image,
   StyleSheet,
   ImageSourcePropType,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
 import { COLORS } from "../constants/theme";
 
@@ -24,57 +26,67 @@ export const MotivationCard: React.FC<Props> = ({
   accentHex,
   onChangeQuote,
 }) => {
-  const inner = (
-    <View
-      style={[
-        styles.overlay,
-        { backgroundColor: bgSource ? `rgba(0,0,0,${bgOpacity})` : "#070709" },
-      ]}
-    >
-      <Text style={[styles.tag, { color: accentHex }]}>GYMNOTE // FOCUS</Text>
-      <TextInput
-        value={quote}
-        onChangeText={onChangeQuote}
-        placeholder="discipline."
-        placeholderTextColor={COLORS.textMuted}
-        style={styles.quoteInput}
-      />
-    </View>
-  );
-
-  if (!bgSource) {
-    return <View style={styles.container}>{inner}</View>;
-  }
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 760;
 
   return (
-    <ImageBackground
-      source={bgSource}
-      style={styles.container}
-      imageStyle={styles.img}
-      resizeMode="cover"
-    >
-      {inner}
-    </ImageBackground>
+    <View style={[styles.container, { height: isDesktop ? 210 : 165 }]}>
+      {bgSource && (
+        <Image
+          source={bgSource}
+          resizeMode="cover"
+          style={[
+            styles.bgImage,
+            Platform.OS === "web"
+              ? ({ objectPosition: "center 30%" } as any)
+              : null,
+          ]}
+        />
+      )}
+
+      <View
+        style={[
+          styles.overlay,
+          {
+            backgroundColor: bgSource
+              ? `rgba(0, 0, 0, ${Math.min(bgOpacity, 0.55)})`
+              : "#070709",
+          },
+        ]}
+      >
+        <Text style={[styles.tag, { color: accentHex }]}>GYMNOTE // FOCUS</Text>
+        <TextInput
+          value={quote}
+          onChangeText={onChangeQuote}
+          placeholder="discipline."
+          placeholderTextColor={COLORS.textMuted}
+          style={styles.quoteInput}
+        />
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    height: 156,
+    width: "100%",
     borderRadius: 18,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 16,
     backgroundColor: COLORS.surface,
+    position: "relative",
   },
-  img: {
-    borderRadius: 18,
+  bgImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
   },
   overlay: {
     flex: 1,
     justifyContent: "space-between",
-    padding: 16,
+    padding: 18,
   },
   tag: {
     fontSize: 10,
@@ -82,7 +94,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
   },
   quoteInput: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: "800",
     color: COLORS.textPrimary,
     letterSpacing: -0.4,
