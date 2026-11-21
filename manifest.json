@@ -1,0 +1,9 @@
+{
+  "name": "GYMNOTE — Workout & Shift Tracker",
+  "short_name": "GYMNOTE",
+  "start_url": "/gymnote/",
+  "scope": "/gymnote/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000"
+}
