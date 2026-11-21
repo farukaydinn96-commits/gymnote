@@ -1,8 +1,16 @@
 import { Exercise, MuscleGroup, SetEntry, WorkoutLog } from "../types/workout";
 import { ensureExerciseSets } from "./sets";
+import { findCatalogExercise } from "../constants/exercises";
 
 export const normalizeExName = (name: string): string =>
   (name || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+export const getExerciseHistoryKey = (
+  ex: Pick<Exercise, "name" | "exerciseId">,
+): string => {
+  const catalog = findCatalogExercise(ex.name, ex.exerciseId);
+  return catalog ? catalog.id : normalizeExName(ex.name);
+};
 
 export const calcSet1RM = (weightStr: string, repsStr: string): number => {
   const w = parseFloat((weightStr || "").replace(",", "."));
@@ -35,7 +43,7 @@ export const getHistoricalBest1RMMap = (
   for (const log of logs) {
     if (excludeDateISO && log.dateISO === excludeDateISO) continue;
     for (const ex of log.exercises) {
-      const key = normalizeExName(ex.name);
+      const key = getExerciseHistoryKey(ex);
       if (!key) continue;
       const best = calcExerciseBest1RM(ex, true);
       if (best > (map[key] || 0)) {
@@ -63,54 +71,57 @@ export const calcExercisesVolumeKg = (exercises: Exercise[]): number => {
   return Math.round(total);
 };
 
-const MUSCLE_KEYWORDS: Array<{ muscles: MuscleGroup[]; patterns: RegExp }> = [
-  {
-    muscles: ["chest", "triceps", "shoulders"],
-    patterns: /bench|incline|chest|pec|fly|push-up|pushup|dip/i,
-  },
-  {
-    muscles: ["back", "biceps"],
-    patterns: /row|pulldown|pull-up|pullup|chin-up|lat |deadlift|back/i,
-  },
-  {
-    muscles: ["shoulders"],
-    patterns:
-      /overhead|shoulder|lateral raise|face pull|rear delt|military|arnold|shrug/i,
-  },
-  {
-    muscles: ["biceps"],
-    patterns: /curl/i,
-  },
-  {
-    muscles: ["triceps"],
-    patterns: /tricep|pushdown|skullcrusher|extension/i,
-  },
+// Katalog dışı özel isimler için kelime sınırlı (\b) ve çakışmasız yedek kurallar
+const FALLBACK_RULES: Array<{ muscles: MuscleGroup[]; pattern: RegExp }> = [
   {
     muscles: ["quads", "glutes"],
-    patterns: /squat|leg press|leg extension|lunge|split squat|hack/i,
+    pattern: /\b(squat|leg press|leg extension|lunge|bacak)\b/i,
   },
   {
     muscles: ["hamstrings", "glutes"],
-    patterns: /romanian|rdl|leg curl|hamstring|hip thrust|glute/i,
+    pattern: /\b(rdl|romanian|leg curl|hamstring|arka bacak)\b/i,
+  },
+  { muscles: ["back", "hamstrings", "glutes"], pattern: /\bdeadlift\b/i },
+  {
+    muscles: ["chest", "triceps", "shoulders"],
+    pattern: /\b(bench|chest|pec|fly|göğüs|gogus)\b/i,
   },
   {
-    muscles: ["calves"],
-    patterns: /calf|calves/i,
+    muscles: ["back", "biceps"],
+    pattern: /\b(row|pulldown|pull-?up|chin-?up|lat|sırt|sirt|kanat)\b/i,
   },
+  {
+    muscles: ["shoulders"],
+    pattern: /\b(overhead|shoulder|lateral|face pull|delt|omuz)\b/i,
+  },
+  { muscles: ["biceps"], pattern: /\b(curl|biceps)\b/i },
+  {
+    muscles: ["triceps"],
+    pattern: /\b(triceps?|pushdown|skullcrusher|arka kol)\b/i,
+  },
+  { muscles: ["glutes"], pattern: /\b(glute|hip thrust|kalça|kalca)\b/i },
+  { muscles: ["calves"], pattern: /\b(calf|calves|kalf)\b/i },
   {
     muscles: ["core"],
-    patterns: /plank|crunch|leg raise|ab |abs|core|sit-up/i,
+    pattern: /\b(plank|crunch|leg raise|abs?|core|karın|karin)\b/i,
   },
 ];
 
-export const inferExerciseMuscles = (name: string): MuscleGroup[] => {
-  const found = new Set<MuscleGroup>();
-  for (const rule of MUSCLE_KEYWORDS) {
-    if (rule.patterns.test(name)) {
-      rule.muscles.forEach((m) => found.add(m));
+export const inferExerciseMuscles = (
+  name: string,
+  exerciseId?: string,
+): MuscleGroup[] => {
+  const catalog = findCatalogExercise(name, exerciseId);
+  if (catalog) {
+    return [catalog.primary, ...(catalog.secondary || [])];
+  }
+
+  for (const rule of FALLBACK_RULES) {
+    if (rule.pattern.test(name)) {
+      return rule.muscles;
     }
   }
-  return Array.from(found);
+  return [];
 };
 
 export const calcWeeklyMuscleSets = (
@@ -133,7 +144,7 @@ export const calcWeeklyMuscleSets = (
   for (const log of logs) {
     if (log.dateISO < mondayISO) continue;
     for (const ex of log.exercises) {
-      const muscles = inferExerciseMuscles(ex.name);
+      const muscles = inferExerciseMuscles(ex.name, ex.exerciseId);
       if (!muscles.length) continue;
       const sets: SetEntry[] = ensureExerciseSets(ex);
       const completedWorkingSets = sets.filter(
@@ -156,13 +167,16 @@ export const calcWeeklyMuscleSets = (
 export const getExercise1RMSeries = (
   logs: WorkoutLog[],
   exerciseName: string,
+  exerciseId?: string,
 ): Array<{ dateISO: string; est1RM: number }> => {
-  const target = normalizeExName(exerciseName);
+  const targetKey = getExerciseHistoryKey({ name: exerciseName, exerciseId });
   const chronological = [...logs].reverse();
   const points: Array<{ dateISO: string; est1RM: number }> = [];
 
   for (const log of chronological) {
-    const match = log.exercises.find((e) => normalizeExName(e.name) === target);
+    const match = log.exercises.find(
+      (e) => getExerciseHistoryKey(e) === targetKey,
+    );
     if (!match) continue;
     const est1RM = calcExerciseBest1RM(match, true);
     if (est1RM > 0) {

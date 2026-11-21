@@ -28,6 +28,7 @@ export interface SetEntry {
 
 export interface Exercise {
   id: string;
+  exerciseId?: string;
   name: string;
   detail: string;
   lastDetail?: string;

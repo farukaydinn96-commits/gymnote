@@ -29,10 +29,19 @@ import {
   ShiftType,
 } from "../types/workout";
 import { COLORS } from "../constants/theme";
-import { DAY_NAMES, SHIFT_NAMES, STRINGS } from "../constants/i18n";
+import {
+  DAY_NAMES,
+  MUSCLE_LABELS,
+  SHIFT_NAMES,
+  STRINGS,
+} from "../constants/i18n";
 import { SPLIT_TEMPLATES } from "../constants/templates";
 import { resolveBackgroundSource } from "../constants/backgrounds";
-import { calcExercisesVolumeKg, normalizeExName } from "../utils/analytics";
+import { searchCatalogExercises } from "../constants/exercises";
+import {
+  calcExercisesVolumeKg,
+  getExerciseHistoryKey,
+} from "../utils/analytics";
 import { MotivationCard } from "../components/MotivationCard";
 import { DayStrip } from "../components/DayStrip";
 import { ExerciseRow } from "../components/ExerciseRow";
@@ -48,7 +57,12 @@ interface Props {
   accentHex: string;
   onSelectDay: (id: DayId) => void;
   onUpdateDay: (dayId: DayId, patch: Partial<DayPlan>) => void;
-  onAddExercise: (dayId: DayId, name: string, detail: string) => void;
+  onAddExercise: (
+    dayId: DayId,
+    name: string,
+    detail: string,
+    exerciseId?: string,
+  ) => void;
   onUpdateExercise: (
     dayId: DayId,
     exId: string,
@@ -124,6 +138,7 @@ export const ProgramScreen: React.FC<Props> = ({
   const progressRatio = totalCount > 0 ? completedCount / totalCount : 0;
   const liveVolumeKg = calcExercisesVolumeKg(day.exercises);
   const hasRestDayAvailable = days.some((d) => d.isRestDay && d.id !== day.id);
+  const catalogSuggestions = searchCatalogExercises(quickInput);
 
   const formatElapsed = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -219,7 +234,6 @@ export const ProgramScreen: React.FC<Props> = ({
         </View>
       )}
 
-      {/* Vardiya Zekası: Gece Vardiyası Yorgunluk Adaptasyon Kartı */}
       {day.shift === "night" && !day.isRestDay && day.exercises.length > 0 && (
         <View style={styles.smartShiftBanner}>
           <Text style={styles.smartShiftTitle}>
@@ -450,7 +464,7 @@ export const ProgramScreen: React.FC<Props> = ({
                 total={day.exercises.length}
                 editMode={editMode}
                 historicalBest1RM={
-                  historicalBestMap[normalizeExName(ex.name)] || 0
+                  historicalBestMap[getExerciseHistoryKey(ex)] || 0
                 }
                 accentHex={accentHex}
                 lang={lang}
@@ -479,6 +493,31 @@ export const ProgramScreen: React.FC<Props> = ({
               </TouchableOpacity>
             )}
           </View>
+
+          {catalogSuggestions.length > 0 && (
+            <View style={styles.suggestionsList}>
+              {catalogSuggestions.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => {
+                    onAddExercise(
+                      day.id,
+                      item.name,
+                      item.defaultDetail,
+                      item.id,
+                    );
+                    setQuickInput("");
+                  }}
+                  style={styles.suggestionRow}
+                >
+                  <Text style={styles.suggestionName}>{item.name}</Text>
+                  <Text style={[styles.suggestionMuscle, { color: accentHex }]}>
+                    {MUSCLE_LABELS[lang][item.primary]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {day.exercises.length > 0 && (
             <View style={styles.finishWrap}>
@@ -818,6 +857,30 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontSize: 20,
     fontWeight: "800",
+  },
+  suggestionsList: {
+    marginTop: 6,
+    gap: 6,
+  },
+  suggestionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  suggestionName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+  },
+  suggestionMuscle: {
+    fontSize: 11,
+    fontWeight: "700",
   },
   finishWrap: {
     marginTop: 16,

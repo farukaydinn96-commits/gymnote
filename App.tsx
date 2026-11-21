@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -27,7 +27,11 @@ import { ACCENTS, COLORS } from "./src/constants/theme";
 import { DEFAULT_SETTINGS, INITIAL_WEEK } from "./src/constants/initialData";
 import { BgPreset, resolveBackgroundSource } from "./src/constants/backgrounds";
 import { DAY_NAMES, STRINGS } from "./src/constants/i18n";
-import { getLocalISODate, getTodayDayId } from "./src/utils/date";
+import {
+  getLocalISODate,
+  getMondayOfCurrentWeekISO,
+  getTodayDayId,
+} from "./src/utils/date";
 import {
   ensureExerciseSets,
   parseDetailToSets,
@@ -37,6 +41,12 @@ import {
   calcExercisesVolumeKg,
   getHistoricalBest1RMMap,
 } from "./src/utils/analytics";
+import {
+  notifyUser,
+  safeLoadJSON,
+  validateBackupPayload,
+} from "./src/utils/storage";
+import { findCatalogExercise } from "./src/constants/exercises";
 import { ProgramScreen } from "./src/screens/ProgramScreen";
 import { ProgressScreen } from "./src/screens/ProgressScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
@@ -48,6 +58,7 @@ const STORAGE_KEYS = {
   WEEK: "@gymnote_week_v2",
   LOGS: "@gymnote_logs_v2",
   SETTINGS: "@gymnote_settings_v2",
+  WEEK_START: "@gymnote_week_start_v2",
 };
 
 const TITLE_MAP: Record<string, { tr: string; en: string }> = {
@@ -73,12 +84,33 @@ const TITLE_MAP: Record<string, { tr: string; en: string }> = {
   "Dinlenme Günü": { tr: "Dinlenme Günü", en: "Rest Day" },
 };
 
+const rolloverWeekDays = (prevDays: DayPlan[]): DayPlan[] =>
+  prevDays.map((d) => ({
+    ...d,
+    exercises: d.exercises.map((e) => {
+      const currentSets = ensureExerciseSets(e);
+      return {
+        ...e,
+        lastDetail: e.detail || e.lastDetail,
+        isPR: false,
+        completed: false,
+        sets: currentSets.map((s) => ({
+          ...s,
+          prevReps: s.reps || s.prevReps,
+          prevWeight: s.weight || s.prevWeight,
+          completed: false,
+        })),
+      };
+    }),
+  }));
+
 export default function App() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 760;
 
   const todayDayId = getTodayDayId();
   const todayISO = getLocalISODate();
+  const currentMondayISO = getMondayOfCurrentWeekISO();
 
   const [tab, setTab] = useState<TabKey>("program");
   const [days, setDays] = useState<DayPlan[]>(INITIAL_WEEK);
@@ -96,57 +128,93 @@ export default function App() {
   } | null>(null);
   const [loaded, setLoaded] = useState(false);
 
+  const corruptedKeysRef = useRef({
+    week: false,
+    logs: false,
+    settings: false,
+  });
+
   useEffect(() => {
     (async () => {
-      try {
-        const [w, l, s, legacyW, legacyL, legacyS] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEYS.WEEK),
-          AsyncStorage.getItem(STORAGE_KEYS.LOGS),
-          AsyncStorage.getItem(STORAGE_KEYS.SETTINGS),
-          AsyncStorage.getItem("@gymnote_week_v1"),
-          AsyncStorage.getItem("@gymnote_logs_v1"),
-          AsyncStorage.getItem("@gymnote_settings_v1"),
-        ]);
+      const [weekRes, logsRes, settingsRes, storedMonday] = await Promise.all([
+        safeLoadJSON<DayPlan[]>(STORAGE_KEYS.WEEK, "@gymnote_week_v1"),
+        safeLoadJSON<WorkoutLog[]>(STORAGE_KEYS.LOGS, "@gymnote_logs_v1"),
+        safeLoadJSON<Partial<AppSettings>>(
+          STORAGE_KEYS.SETTINGS,
+          "@gymnote_settings_v1",
+        ),
+        AsyncStorage.getItem(STORAGE_KEYS.WEEK_START).catch(() => null),
+      ]);
 
-        const rawWeek = w || legacyW;
-        const rawLogs = l || legacyL;
-        const rawSettings = s || legacyS;
+      corruptedKeysRef.current = {
+        week: weekRes.corrupted,
+        logs: logsRes.corrupted,
+        settings: settingsRes.corrupted,
+      };
 
-        if (rawWeek) setDays(JSON.parse(rawWeek));
-        if (rawLogs) setLogs(JSON.parse(rawLogs));
-        if (rawSettings) {
-          const parsed = JSON.parse(rawSettings);
-          const safeAccent: AccentKey =
-            parsed.accent && ACCENTS[parsed.accent as AccentKey]
-              ? parsed.accent
-              : "lime";
-          setSettings({
-            ...DEFAULT_SETTINGS,
-            ...parsed,
-            accent: safeAccent,
-            presetBgId: parsed.presetBgId || "focus",
-            lang: parsed.lang || "en",
-          });
-        }
-      } finally {
-        setLoaded(true);
+      if (weekRes.data && Array.isArray(weekRes.data)) {
+        const shouldRollover = storedMonday && storedMonday < currentMondayISO;
+        setDays(shouldRollover ? rolloverWeekDays(weekRes.data) : weekRes.data);
       }
+
+      if (!storedMonday || storedMonday < currentMondayISO) {
+        AsyncStorage.setItem(STORAGE_KEYS.WEEK_START, currentMondayISO).catch(
+          () => {},
+        );
+      }
+
+      if (logsRes.data && Array.isArray(logsRes.data)) {
+        setLogs(logsRes.data);
+      }
+
+      if (settingsRes.data) {
+        const parsed = settingsRes.data;
+        const safeAccent: AccentKey =
+          parsed.accent && ACCENTS[parsed.accent as AccentKey]
+            ? (parsed.accent as AccentKey)
+            : "lime";
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          ...parsed,
+          accent: safeAccent,
+          presetBgId: parsed.presetBgId || "focus",
+          lang: parsed.lang || "en",
+        });
+      }
+
+      setLoaded(true);
     })();
-  }, []);
+  }, [currentMondayISO]);
 
   useEffect(() => {
-    if (!loaded) return;
-    AsyncStorage.setItem(STORAGE_KEYS.WEEK, JSON.stringify(days));
+    if (!loaded || corruptedKeysRef.current.week) return;
+    const id = setTimeout(() => {
+      AsyncStorage.setItem(STORAGE_KEYS.WEEK, JSON.stringify(days)).catch(
+        () => {},
+      );
+    }, 400);
+    return () => clearTimeout(id);
   }, [days, loaded]);
 
   useEffect(() => {
-    if (!loaded) return;
-    AsyncStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(logs));
+    if (!loaded || corruptedKeysRef.current.logs) return;
+    const id = setTimeout(() => {
+      AsyncStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(logs)).catch(
+        () => {},
+      );
+    }, 400);
+    return () => clearTimeout(id);
   }, [logs, loaded]);
 
   useEffect(() => {
-    if (!loaded) return;
-    AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    if (!loaded || corruptedKeysRef.current.settings) return;
+    const id = setTimeout(() => {
+      AsyncStorage.setItem(
+        STORAGE_KEYS.SETTINGS,
+        JSON.stringify(settings),
+      ).catch(() => {});
+    }, 400);
+    return () => clearTimeout(id);
   }, [settings, loaded]);
 
   const lang: Lang = settings.lang || "en";
@@ -168,10 +236,17 @@ export default function App() {
     );
   };
 
-  const handleAddExercise = (dayId: DayId, name: string, detail: string) => {
+  const handleAddExercise = (
+    dayId: DayId,
+    name: string,
+    detail: string,
+    exerciseId?: string,
+  ) => {
     const id = Date.now().toString();
+    const matched = findCatalogExercise(name, exerciseId);
     const newEx: Exercise = {
       id,
+      exerciseId: matched?.id || exerciseId,
       name,
       detail,
       completed: false,
@@ -268,7 +343,6 @@ export default function App() {
     setSelectedDayId(toDayId);
   };
 
-  // Gece vardiyası -%10 Deload motoru (en yakın 2.5 kg'a yuvarlar)
   const handleApplyDeload = (dayId: DayId) => {
     setDays((prev) =>
       prev.map((d) => {
@@ -291,14 +365,9 @@ export default function App() {
         };
       }),
     );
-    if (Platform.OS === "web") {
-      window.alert(t.deloadAppliedMsg);
-    } else {
-      Alert.alert("GYMNOTE", t.deloadAppliedMsg);
-    }
+    notifyUser("GYMNOTE", t.deloadAppliedMsg);
   };
 
-  // Gece vardiyası gününü haftadaki ilk uygun Dinlenme Günü ile takas eder
   const handleSwapWithRestDay = (dayId: DayId) => {
     setDays((prev) => {
       const currentIdx = prev.findIndex((d) => d.id === dayId);
@@ -334,9 +403,11 @@ export default function App() {
         shiftHours: "",
         exercises: d.exercises.map((e, i) => {
           const newId = `${d.id}_${Date.now()}_${i}`;
+          const matched = findCatalogExercise(e.name);
           return {
             ...e,
             id: newId,
+            exerciseId: matched?.id,
             sets: parseDetailToSets(e.detail, newId),
           };
         }),
@@ -344,11 +415,7 @@ export default function App() {
     );
     setSelectedDayId(todayDayId);
     setTab("program");
-    if (Platform.OS === "web") {
-      window.alert(`${t.templateLoaded}: ${name}`);
-    } else {
-      Alert.alert(t.templateLoaded, name);
-    }
+    notifyUser(t.templateLoaded, name);
   };
 
   const handleFinishWorkout = (day: DayPlan) => {
@@ -396,25 +463,9 @@ export default function App() {
   const handleResetWeek = () => {
     const runReset = () => {
       setSessionStartMs(null);
-      setDays((prev) =>
-        prev.map((d) => ({
-          ...d,
-          exercises: d.exercises.map((e) => {
-            const currentSets = ensureExerciseSets(e);
-            return {
-              ...e,
-              lastDetail: e.detail || e.lastDetail,
-              isPR: false,
-              completed: false,
-              sets: currentSets.map((s) => ({
-                ...s,
-                prevReps: s.reps || s.prevReps,
-                prevWeight: s.weight || s.prevWeight,
-                completed: false,
-              })),
-            };
-          }),
-        })),
+      setDays((prev) => rolloverWeekDays(prev));
+      AsyncStorage.setItem(STORAGE_KEYS.WEEK_START, currentMondayISO).catch(
+        () => {},
       );
     };
 
@@ -445,27 +496,27 @@ export default function App() {
   };
 
   const handleImportBackup = (raw: string) => {
-    try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed.days)) throw new Error("Invalid");
-      setDays(parsed.days);
-      if (Array.isArray(parsed.logs)) setLogs(parsed.logs);
-      if (parsed.settings) {
-        const safeAccent: AccentKey =
-          parsed.settings.accent && ACCENTS[parsed.settings.accent as AccentKey]
-            ? parsed.settings.accent
-            : "lime";
-        setSettings({
-          ...DEFAULT_SETTINGS,
-          ...parsed.settings,
-          accent: safeAccent,
-        });
-      }
-      setBackupMode(null);
-      Alert.alert("GYMNOTE", t.backupSuccess);
-    } catch {
-      Alert.alert("GYMNOTE", t.invalidJson);
+    const result = validateBackupPayload(raw);
+    if (!result.valid) {
+      notifyUser("GYMNOTE", t.invalidJson);
+      return;
     }
+    corruptedKeysRef.current = { week: false, logs: false, settings: false };
+    setDays(result.days);
+    setLogs(result.logs);
+    if (result.settings) {
+      const safeAccent: AccentKey =
+        result.settings.accent && ACCENTS[result.settings.accent as AccentKey]
+          ? result.settings.accent
+          : "lime";
+      setSettings({
+        ...DEFAULT_SETTINGS,
+        ...result.settings,
+        accent: safeAccent,
+      });
+    }
+    setBackupMode(null);
+    notifyUser("GYMNOTE", t.backupSuccess);
   };
 
   const navItems: Array<{ key: TabKey; label: string; Icon: typeof Dumbbell }> =

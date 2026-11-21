@@ -9,7 +9,7 @@ import {
 import * as Haptics from "expo-haptics";
 import { Timer, X, RotateCcw } from "lucide-react-native";
 import { COLORS } from "../constants/theme";
-import { playRestFinishedChime } from "../utils/plates";
+import { playRestFinishedChime } from "../utils/sound";
 
 interface Props {
   accentHex: string;
@@ -25,39 +25,43 @@ export const RestTimerPill: React.FC<Props> = ({
   autoTrigger,
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const [endTimeMs, setEndTimeMs] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
-  const [running, setRunning] = useState(false);
 
   useEffect(() => {
     if (autoTrigger && autoTrigger.nonce > 0 && autoTrigger.seconds > 0) {
+      setEndTimeMs(Date.now() + autoTrigger.seconds * 1000);
       setSecondsLeft(autoTrigger.seconds);
-      setRunning(true);
     }
   }, [autoTrigger]);
 
   useEffect(() => {
-    if (!running || secondsLeft <= 0) return;
-    const id = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          setRunning(false);
-          playRestFinishedChime();
-          if (Platform.OS !== "web") {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          }
-          return 0;
+    if (!endTimeMs) return;
+
+    const tick = () => {
+      const remaining = Math.ceil((endTimeMs - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setEndTimeMs(null);
+        setSecondsLeft(0);
+        playRestFinishedChime();
+        if (Platform.OS !== "web") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
-        return prev - 1;
-      });
-    }, 1000);
+      } else {
+        setSecondsLeft(remaining);
+      }
+    };
+
+    tick();
+    const id = setInterval(tick, 500);
     return () => clearInterval(id);
-  }, [running, secondsLeft]);
+  }, [endTimeMs]);
 
   const startPreset = (sec: number) => {
     if (Platform.OS !== "web")
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setEndTimeMs(Date.now() + sec * 1000);
     setSecondsLeft(sec);
-    setRunning(true);
     setExpanded(false);
   };
 
@@ -66,6 +70,8 @@ export const RestTimerPill: React.FC<Props> = ({
     const s = sec % 60;
     return `${m}:${String(s).padStart(2, "0")}`;
   };
+
+  const running = endTimeMs !== null && secondsLeft > 0;
 
   return (
     <View style={styles.wrapper}>
@@ -83,7 +89,7 @@ export const RestTimerPill: React.FC<Props> = ({
           {secondsLeft > 0 && (
             <TouchableOpacity
               onPress={() => {
-                setRunning(false);
+                setEndTimeMs(null);
                 setSecondsLeft(0);
                 setExpanded(false);
               }}
